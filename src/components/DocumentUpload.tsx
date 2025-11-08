@@ -5,10 +5,11 @@ import { Card, CardContent } from './ui/card';
 import { useToast } from '@/hooks/use-toast';
 
 interface DocumentUploadProps {
-  onDocumentSelect: (file: File) => void;
+  onFileChange: (file: File | null) => void;
+  selectedFile: File | null;
 }
 
-export const DocumentUpload = ({ onDocumentSelect }: DocumentUploadProps) => {
+export const DocumentUpload = ({ onFileChange, selectedFile }: DocumentUploadProps) => {
   const [isDragging, setIsDragging] = useState(false);
   const { toast } = useToast();
 
@@ -27,7 +28,11 @@ export const DocumentUpload = ({ onDocumentSelect }: DocumentUploadProps) => {
     
     const file = e.dataTransfer.files[0];
     if (file && file.type === 'application/pdf') {
-      onDocumentSelect(file);
+      onFileChange(file);
+      toast({
+        title: "File selected",
+        description: file.name,
+      });
     } else {
       toast({
         title: "Invalid file type",
@@ -40,7 +45,11 @@ export const DocumentUpload = ({ onDocumentSelect }: DocumentUploadProps) => {
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      onDocumentSelect(file);
+      onFileChange(file);
+      toast({
+        title: "File selected",
+        description: file.name,
+      });
     }
   };
 
@@ -57,7 +66,7 @@ export const DocumentUpload = ({ onDocumentSelect }: DocumentUploadProps) => {
         <Upload className="h-12 w-12 text-muted-foreground mb-4" />
         <h3 className="text-lg font-semibold mb-2">Upload Research Paper</h3>
         <p className="text-sm text-muted-foreground mb-4">
-          Drag and drop a PDF file or click to browse
+          {selectedFile ? selectedFile.name : "Drag and drop a PDF file or click to browse"}
         </p>
         <input
           type="file"
@@ -68,7 +77,7 @@ export const DocumentUpload = ({ onDocumentSelect }: DocumentUploadProps) => {
         />
         <label htmlFor="file-upload">
           <Button variant="secondary" asChild>
-            <span>Choose File</span>
+            <span>{selectedFile ? "Change File" : "Choose File"}</span>
           </Button>
         </label>
       </CardContent>

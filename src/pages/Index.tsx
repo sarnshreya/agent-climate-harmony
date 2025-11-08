@@ -4,17 +4,91 @@ import { DocumentUpload } from "@/components/DocumentUpload";
 import { AgentConversation } from "@/components/AgentConversation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Download, FileText } from "lucide-react";
 import { processMockDocument } from "@/lib/mockAgentProcessing";
+import { useToast } from "@/hooks/use-toast";
+import jsPDF from "jspdf";
 
 const Index = () => {
   const [agentOutputs, setAgentOutputs] = useState<any[]>([]);
-  const [selectedFile, setSelectedFile] = useState<string>("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { toast } = useToast();
 
-  const handleDocumentSelect = (file: File) => {
-    setSelectedFile(file.name);
-    // Simulate agent processing
-    const outputs = processMockDocument(file.name);
-    setAgentOutputs(outputs);
+  const handleSubmit = () => {
+    if (!selectedFile) {
+      toast({
+        title: "No file selected",
+        description: "Please upload a PDF file first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+    // Simulate processing delay
+    setTimeout(() => {
+      const outputs = processMockDocument(selectedFile.name);
+      setAgentOutputs(outputs);
+      setIsProcessing(false);
+      toast({
+        title: "Processing complete",
+        description: "Analysis results are ready",
+      });
+    }, 1500);
+  };
+
+  const downloadJSON = () => {
+    const dataStr = JSON.stringify(agentOutputs, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `analysis-${selectedFile?.name || 'report'}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadPDF = () => {
+    const doc = new jsPDF();
+    let yPosition = 20;
+
+    doc.setFontSize(16);
+    doc.text("Multi-Agent Research Analysis", 20, yPosition);
+    yPosition += 10;
+
+    doc.setFontSize(10);
+    doc.text(`Document: ${selectedFile?.name || 'Unknown'}`, 20, yPosition);
+    yPosition += 10;
+
+    agentOutputs.forEach((output) => {
+      if (yPosition > 270) {
+        doc.addPage();
+        yPosition = 20;
+      }
+
+      doc.setFontSize(12);
+      doc.text(`${output.icon} ${output.agent}`, 20, yPosition);
+      yPosition += 7;
+
+      doc.setFontSize(9);
+      output.content.forEach((text: string) => {
+        const lines = doc.splitTextToSize(text, 170);
+        lines.forEach((line: string) => {
+          if (yPosition > 280) {
+            doc.addPage();
+            yPosition = 20;
+          }
+          doc.text(line, 20, yPosition);
+          yPosition += 5;
+        });
+        yPosition += 3;
+      });
+      yPosition += 5;
+    });
+
+    doc.save(`analysis-${selectedFile?.name || 'report'}.pdf`);
   };
 
   return (
@@ -27,15 +101,40 @@ const Index = () => {
           </p>
         </div>
 
-        <DocumentUpload onDocumentSelect={handleDocumentSelect} />
+        <DocumentUpload onFileChange={setSelectedFile} selectedFile={selectedFile} />
+
+        <div className="flex justify-center">
+          <Button 
+            onClick={handleSubmit} 
+            disabled={!selectedFile || isProcessing}
+            size="lg"
+            className="min-w-[200px]"
+          >
+            {isProcessing ? "Processing..." : "Submit & Analyze"}
+          </Button>
+        </div>
 
         {agentOutputs.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Analysis Results: {selectedFile}</CardTitle>
-              <CardDescription>
-                View the agent workflow and conversation flow with reasoning outputs
-              </CardDescription>
+              <div className="flex items-start justify-between">
+                <div>
+                  <CardTitle>Analysis Results: {selectedFile?.name}</CardTitle>
+                  <CardDescription>
+                    View the agent workflow and conversation flow with reasoning outputs
+                  </CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={downloadJSON} variant="outline" size="sm">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Download JSON
+                  </Button>
+                  <Button onClick={downloadPDF} variant="outline" size="sm">
+                    <Download className="h-4 w-4 mr-2" />
+                    Download PDF
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="conversation" className="w-full">
@@ -54,20 +153,18 @@ const Index = () => {
           </Card>
         )}
 
-        {agentOutputs.length === 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Agent Workflow Visualization</CardTitle>
-              <CardDescription>
-                Interactive graph showing the conversation and reasoning flow between agents.
-                Each agent processes information and passes insights to the next stage.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <AgentWorkflowGraph />
-            </CardContent>
-          </Card>
-        )}
+        <Card>
+          <CardHeader>
+            <CardTitle>Agent Workflow Visualization</CardTitle>
+            <CardDescription>
+              Interactive graph showing the conversation and reasoning flow between agents.
+              Each agent processes information and passes insights to the next stage.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AgentWorkflowGraph />
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card>

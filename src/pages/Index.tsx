@@ -1,7 +1,22 @@
+import { useState } from "react";
 import { AgentWorkflowGraph } from "@/components/AgentWorkflowGraph";
+import { DocumentUpload } from "@/components/DocumentUpload";
+import { AgentConversation } from "@/components/AgentConversation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { processMockDocument } from "@/lib/mockAgentProcessing";
 
 const Index = () => {
+  const [agentOutputs, setAgentOutputs] = useState<any[]>([]);
+  const [selectedFile, setSelectedFile] = useState<string>("");
+
+  const handleDocumentSelect = (file: File) => {
+    setSelectedFile(file.name);
+    // Simulate agent processing
+    const outputs = processMockDocument(file.name);
+    setAgentOutputs(outputs);
+  };
+
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -12,18 +27,47 @@ const Index = () => {
           </p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Agent Workflow Visualization</CardTitle>
-            <CardDescription>
-              Interactive graph showing the conversation and reasoning flow between agents.
-              Each agent processes information and passes insights to the next stage.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <AgentWorkflowGraph />
-          </CardContent>
-        </Card>
+        <DocumentUpload onDocumentSelect={handleDocumentSelect} />
+
+        {agentOutputs.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Analysis Results: {selectedFile}</CardTitle>
+              <CardDescription>
+                View the agent workflow and conversation flow with reasoning outputs
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="conversation" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="conversation">Agent Conversation Flow</TabsTrigger>
+                  <TabsTrigger value="workflow">Workflow Graph</TabsTrigger>
+                </TabsList>
+                <TabsContent value="conversation" className="mt-6">
+                  <AgentConversation outputs={agentOutputs} />
+                </TabsContent>
+                <TabsContent value="workflow" className="mt-6">
+                  <AgentWorkflowGraph />
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        )}
+
+        {agentOutputs.length === 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Agent Workflow Visualization</CardTitle>
+              <CardDescription>
+                Interactive graph showing the conversation and reasoning flow between agents.
+                Each agent processes information and passes insights to the next stage.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AgentWorkflowGraph />
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card>

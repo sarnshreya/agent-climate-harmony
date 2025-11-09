@@ -31,15 +31,14 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log(`===== DEBUG MODE: Only Reader Agent =====`);
+    console.log(`===== Multi-Agent Processing System =====`);
     console.log(`Processing document: ${fileName}`);
     console.log(`File content length: ${fileContent.length} characters`);
-    console.log(`File content preview (first 300 chars):`, fileContent.substring(0, 300));
 
     const outputs: AgentOutput[] = [];
 
-    // Reader Agent - DEBUG MODE using Lovable AI
-    console.log("\n===== Running Reader Agent with Lovable AI =====");
+    // Reader Agent
+    console.log("\n===== Running Reader Agent =====");
     const readerResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -96,16 +95,131 @@ serve(async (req) => {
     outputs.push({
       agent: "Reader Agent",
       icon: "📖",
-      title: "Document Summary - DEBUG MODE",
+      title: "Document Summary",
       receivedFrom: ["Input Document"],
-      sentTo: ["DEBUG - Only Reader Agent running"],
+      sentTo: ["Critic Agent", "Synthesis Agent"],
       content: readerContent.split("\n\n").filter((p: string) => p.trim()),
     });
 
-    console.log(`\n===== Output created =====`);
-    console.log(`Number of outputs: ${outputs.length}`);
-    console.log(`Content sections: ${outputs[0].content.length}`);
-    console.log(`\n===== Skipping all other agents (DEBUG MODE) =====`);
+    // Critic Agent
+    console.log("\n===== Running Critic Agent =====");
+    const criticResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: "You are a Critic Agent. Analyze the Reader's findings for weaknesses, gaps, and areas needing improvement. Provide constructive criticism and identify missing perspectives."
+          },
+          {
+            role: "user",
+            content: `Analyze and critique this analysis:\n\n${readerContent}`
+          }
+        ],
+      }),
+    });
+
+    if (!criticResponse.ok) {
+      throw new Error(`Critic Agent failed: ${criticResponse.status}`);
+    }
+
+    const criticData = await criticResponse.json();
+    const criticContent = criticData.choices?.[0]?.message?.content || "No critique available";
+
+    outputs.push({
+      agent: "Critic Agent",
+      icon: "🔍",
+      title: "Critical Analysis",
+      receivedFrom: ["Reader Agent"],
+      sentTo: ["Synthesis Agent"],
+      content: criticContent.split("\n\n").filter((p: string) => p.trim()),
+    });
+
+    // Synthesis Agent
+    console.log("\n===== Running Synthesis Agent =====");
+    const synthesisResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: "You are a Synthesis Agent. Combine insights from the Reader and Critic to create a comprehensive, balanced analysis. Integrate different perspectives and resolve contradictions."
+          },
+          {
+            role: "user",
+            content: `Synthesize these analyses:\n\nReader Analysis:\n${readerContent}\n\nCritic Feedback:\n${criticContent}`
+          }
+        ],
+      }),
+    });
+
+    if (!synthesisResponse.ok) {
+      throw new Error(`Synthesis Agent failed: ${synthesisResponse.status}`);
+    }
+
+    const synthesisData = await synthesisResponse.json();
+    const synthesisContent = synthesisData.choices?.[0]?.message?.content || "No synthesis available";
+
+    outputs.push({
+      agent: "Synthesis Agent",
+      icon: "🧩",
+      title: "Integrated Analysis",
+      receivedFrom: ["Reader Agent", "Critic Agent"],
+      sentTo: ["Editor Agent"],
+      content: synthesisContent.split("\n\n").filter((p: string) => p.trim()),
+    });
+
+    // Editor Agent
+    console.log("\n===== Running Editor Agent =====");
+    const editorResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: "You are an Editor Agent. Polish the synthesized analysis for clarity, coherence, and presentation. Ensure professional formatting and logical flow."
+          },
+          {
+            role: "user",
+            content: `Edit and refine this analysis:\n\n${synthesisContent}`
+          }
+        ],
+      }),
+    });
+
+    if (!editorResponse.ok) {
+      throw new Error(`Editor Agent failed: ${editorResponse.status}`);
+    }
+
+    const editorData = await editorResponse.json();
+    const editorContent = editorData.choices?.[0]?.message?.content || "No edited content available";
+
+    outputs.push({
+      agent: "Editor Agent",
+      icon: "✍️",
+      title: "Final Report",
+      receivedFrom: ["Synthesis Agent"],
+      sentTo: ["Output"],
+      content: editorContent.split("\n\n").filter((p: string) => p.trim()),
+    });
+
+    console.log(`\n===== Multi-Agent Processing Complete =====`);
+    console.log(`Total agents processed: ${outputs.length}`);
 
     return new Response(
       JSON.stringify({ outputs }),

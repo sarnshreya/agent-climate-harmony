@@ -36,13 +36,13 @@ export const AgentConversation = ({ outputs }: AgentConversationProps) => {
                     <span className="text-2xl">{output.icon}</span>
                     <span>{output.agent}</span>
                   </CardTitle>
-                  <Badge variant="outline">{output.title}</Badge>
+                  <Badge className="bg-primary text-primary-foreground">{output.title}</Badge>
                 </div>
                 {output.receivedFrom && output.receivedFrom.length > 0 && (
                   <div className="flex gap-2 items-center text-sm text-muted-foreground mt-2">
                     <span>← Received from:</span>
                     {output.receivedFrom.map((agent, i) => (
-                      <Badge key={i} variant="secondary" className="text-xs">
+                      <Badge key={i} className="text-xs bg-primary/10 text-primary border-primary/20">
                         {agent}
                       </Badge>
                     ))}
@@ -60,7 +60,7 @@ export const AgentConversation = ({ outputs }: AgentConversationProps) => {
                   <div className="flex gap-2 items-center text-sm text-muted-foreground mt-4 pt-4 border-t">
                     <span>→ Sent to:</span>
                     {output.sentTo.map((agent, i) => (
-                      <Badge key={i} variant="secondary" className="text-xs">
+                      <Badge key={i} className="text-xs bg-primary/10 text-primary border-primary/20">
                         {agent}
                       </Badge>
                     ))}

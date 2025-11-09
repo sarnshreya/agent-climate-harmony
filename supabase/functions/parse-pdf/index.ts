@@ -11,6 +11,9 @@ async function extractTextFromPDF(base64Data: string): Promise<string> {
   try {
     console.log(`[PDF.js] Starting text extraction...`);
     
+    // Disable worker for Deno environment
+    pdfjs.GlobalWorkerOptions.workerSrc = '';
+    
     // Decode base64 to binary
     const binaryString = atob(base64Data);
     const bytes = new Uint8Array(binaryString.length);

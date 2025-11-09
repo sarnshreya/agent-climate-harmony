@@ -52,7 +52,7 @@ const generateDynamicNodesAndEdges = (outputs: AgentOutput[]) => {
   nodes.push({
     id: 'input',
     type: 'input',
-    data: { label: 'Input Document' },
+    data: { label: '📄 Input Document' },
     position: { x: 250, y: 0 },
     style: {
       background: 'hsl(var(--primary))',
@@ -64,8 +64,34 @@ const generateDynamicNodesAndEdges = (outputs: AgentOutput[]) => {
     },
   });
 
-  // Calculate vertical positions for agents
-  let yPosition = 100;
+  // Add PDF Parser node
+  nodes.push({
+    id: 'pdf-parser',
+    data: { label: '📋 PDF Parser\nExtracts text from PDF' },
+    position: { x: 250, y: 100 },
+    style: {
+      background: 'hsl(var(--secondary))',
+      color: 'hsl(var(--secondary-foreground))',
+      border: '2px solid hsl(var(--border))',
+      borderRadius: '8px',
+      padding: '15px',
+      whiteSpace: 'pre-line' as const,
+      textAlign: 'center' as const,
+    },
+  });
+
+  // Connect input to PDF parser
+  edges.push({
+    id: 'input-to-parser',
+    source: 'input',
+    target: 'pdf-parser',
+    animated: true,
+    style: { stroke: 'hsl(var(--primary))' },
+    markerEnd: { type: MarkerType.ArrowClosed, color: 'hsl(var(--primary))' },
+  });
+
+  // Calculate vertical positions for agents (start after PDF parser)
+  let yPosition = 220;
   const yStep = 120;
   const agentIds: Record<string, string> = {};
 
@@ -102,16 +128,28 @@ const generateDynamicNodesAndEdges = (outputs: AgentOutput[]) => {
   outputs.forEach((output) => {
     const targetId = agentIds[output.agent];
     
-    // Handle edges from Input Document
+    // Handle edges from Input Document (should not happen anymore)
     if (output.receivedFrom.includes('Input Document')) {
-      edges.push({
-        id: `input-${targetId}`,
-        source: 'input',
-        target: targetId,
-        animated: true,
-        style: { stroke: 'hsl(var(--primary))' },
-        markerEnd: { type: MarkerType.ArrowClosed, color: 'hsl(var(--primary))' },
-      });
+      // First agent (Reader) should receive from PDF Parser instead
+      if (output.agent === 'Reader Agent') {
+        edges.push({
+          id: `pdf-parser-${targetId}`,
+          source: 'pdf-parser',
+          target: targetId,
+          animated: true,
+          style: { stroke: 'hsl(var(--primary))' },
+          markerEnd: { type: MarkerType.ArrowClosed, color: 'hsl(var(--primary))' },
+        });
+      } else {
+        edges.push({
+          id: `input-${targetId}`,
+          source: 'input',
+          target: targetId,
+          animated: true,
+          style: { stroke: 'hsl(var(--primary))' },
+          markerEnd: { type: MarkerType.ArrowClosed, color: 'hsl(var(--primary))' },
+        });
+      }
     }
 
     // Handle edges from other agents

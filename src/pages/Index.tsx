@@ -202,6 +202,17 @@ const Index = () => {
 
           <Card>
             <CardHeader>
+              <CardTitle className="text-lg">🔬 NoveltyChecker</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Analyzes research novelty by comparing concepts with prior studies using semantic similarity.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle className="text-lg">💡 Explainer</CardTitle>
             </CardHeader>
             <CardContent>

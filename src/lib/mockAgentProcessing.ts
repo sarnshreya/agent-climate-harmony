@@ -30,7 +30,7 @@ export const processMockDocument = (fileName: string) => {
       icon: "🧩",
       title: "Synthesized Insights",
       receivedFrom: ["Reader Agent", "Critic Agent"],
-      sentTo: ["Explainer Agent", "Coordinator Agent"],
+      sentTo: ["NoveltyChecker Agent", "Coordinator Agent"],
       content: [
         `**Cross-Cutting Insights**:\n1. **Computational-Resolution Paradigm**: The 1500x speedup [Reader] addresses the fundamental trade-off [Reader], but missing accuracy metrics [Critic] prevent full evaluation\n\n2. **Two-Tier Architecture**: Regression + emulation [Reader] suggests hierarchical ML design, though generalization limitations [Critic] raise scalability questions`,
         
@@ -40,10 +40,24 @@ export const processMockDocument = (fileName: string) => {
       ]
     },
     {
+      agent: "NoveltyChecker Agent",
+      icon: "🔬",
+      title: "Research Novelty & Similarity Analysis",
+      receivedFrom: ["Reader Agent", "Synthesizer Agent"],
+      sentTo: ["Explainer Agent", "Coordinator Agent"],
+      content: [
+        `**Key Concepts Extracted**:\n• ML-based parameterization for climate models [Reader]\n• Two-stage regression + emulation architecture [Reader]\n• 1500x computational speedup achievement [Synthesizer]\n• Physics-ML integration challenges [Synthesizer]`,
+        
+        `**Similar Prior Studies** (Semantic Search Results):\n\n1. **"Neural Network Parameterizations for Atmospheric Chemistry" (2019)**\n   - Similarity Score: 0.87/1.0\n   - Overlap: ML emulation of chemistry, computational efficiency\n   - Novel Aspect: Two-stage architecture vs. single-pass approach\n\n2. **"Machine Learning for Climate Model Speedup" (2021)**\n   - Similarity Score: 0.82/1.0\n   - Overlap: Climate model acceleration, regression techniques\n   - Novel Aspect: Specific ozone chemistry focus with validation\n\n3. **"Hybrid Physics-ML for Earth System Models" (2022)**\n   - Similarity Score: 0.75/1.0\n   - Overlap: Physics-data integration discussion\n   - Novel Aspect: Practical implementation vs. theoretical framework`,
+        
+        `**Novel Contributions Identified**:\n✓ **Empirical Speedup Validation**: 1500x speedup with real-world ozone chemistry case [High Confidence]\n✓ **Hierarchical ML Design**: Two-stage regression→emulation pipeline [Medium-High Confidence]\n✗ **Validation Framework**: Missing metrics noted by Critic reduce novelty claim strength\n⚠ **Generalization Scope**: Limited evidence of applicability beyond ozone chemistry\n\n**Novelty Assessment**: Moderate-High novelty in implementation approach, but conceptual foundations build on established ML-climate literature from 2019-2022.`
+      ]
+    },
+    {
       agent: "Explainer Agent",
       icon: "💡",
       title: "Reasoning & Evidence",
-      receivedFrom: ["Synthesizer Agent"],
+      receivedFrom: ["NoveltyChecker Agent"],
       sentTo: ["Coordinator Agent"],
       content: [
         `**Claim 1**: "ML can replace expensive climate model components"\n**Reasoning**: Ozone case study shows 1500x speedup [Reader] with two-stage process [Reader]\n**Confidence**: High - direct empirical evidence\n**Evidence**: [Reader: "1500x speedup demonstrated"], [Reader: "two-stage ML process"]`,
@@ -57,14 +71,14 @@ export const processMockDocument = (fileName: string) => {
       agent: "Coordinator Agent",
       icon: "📊",
       title: "Final Report",
-      receivedFrom: ["Reader Agent", "Critic Agent", "Synthesizer Agent", "Explainer Agent"],
+      receivedFrom: ["Reader Agent", "Critic Agent", "Synthesizer Agent", "NoveltyChecker Agent", "Explainer Agent"],
       sentTo: [],
       content: [
         `**EXECUTIVE SUMMARY**\nThis paper presents ML approaches to accelerate climate modeling via parameterization, achieving 1500x speedup in ozone chemistry while highlighting critical validation gaps.`,
         
         `**CRITIQUE HIGHLIGHTS**\n✓ Strong empirical demonstration [Reader: 1500x speedup]\n✗ Missing quantitative validation [Critic: no accuracy metrics]\n✗ Generalization scope unclear [Critic: limited to ozone?]\n⚠ Physical consistency not addressed [Synthesizer: physics-ML integration gap]`,
         
-        `**SYNTHESIZED INSIGHTS**\n1. Computational-Resolution Trade-off: Breakthrough speed improvements, but incomplete accuracy assessment limits practical deployment\n2. Two-Tier Architecture: Novel hierarchical design [Explainer: High confidence] shows promise for modular climate modeling\n3. Policy Implications: Faster models enable broader scenario analysis [Synthesizer: Energy-Climate Nexus]`,
+        `**SYNTHESIZED INSIGHTS**\n1. Computational-Resolution Trade-off: Breakthrough speed improvements, but incomplete accuracy assessment limits practical deployment\n2. Two-Tier Architecture: Novel hierarchical design [Explainer: High confidence] shows promise for modular climate modeling\n3. Novelty Assessment: Moderate-high novelty [NoveltyChecker: 0.75-0.87 similarity to prior work], builds on 2019-2022 ML-climate literature\n4. Policy Implications: Faster models enable broader scenario analysis [Synthesizer: Energy-Climate Nexus]`,
         
         `**TRANSPARENT REASONING APPENDIX**\n\n[Claim] ML replaces expensive components\n[Reasoning] Direct empirical case study evidence\n[Confidence] High\n[Citations] Reader: "1500x speedup", "two-stage process"\n\n[Claim] Validation framework insufficient  \n[Reasoning] Critical gaps in metrics and uncertainty\n[Confidence] Medium\n[Citations] Critic: "Missing validation metrics", "uncertainty quantification absent"\n\n**COORDINATOR VERIFICATION**\n✓ All agent outputs integrated\n✓ Source citations preserved throughout\n✓ Critique aligned with summary\n✓ Reasoning transparency maintained\n✓ Report completeness confirmed`
       ]

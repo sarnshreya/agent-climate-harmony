@@ -16,7 +16,7 @@ const Index = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!selectedFile) {
       toast({
         title: "No file selected",
@@ -27,16 +27,46 @@ const Index = () => {
     }
 
     setIsProcessing(true);
-    // Simulate processing delay
-    setTimeout(() => {
-      const outputs = processMockDocument(selectedFile.name);
-      setAgentOutputs(outputs);
-      setIsProcessing(false);
+    
+    try {
+      const fileContent = await selectedFile.text();
+      
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-document`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            fileName: selectedFile.name,
+            fileContent: fileContent,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to process document");
+      }
+
+      const data = await response.json();
+      setAgentOutputs(data.outputs);
+      
       toast({
         title: "Processing complete",
-        description: "Analysis results are ready",
+        description: "AI analysis results are ready",
       });
-    }, 1500);
+    } catch (error) {
+      console.error("Processing error:", error);
+      toast({
+        title: "Processing failed",
+        description: error instanceof Error ? error.message : "An error occurred while processing your document.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const downloadJSON = () => {

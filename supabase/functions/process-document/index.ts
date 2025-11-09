@@ -31,13 +31,25 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
+    console.log(`\n========== PROCESS-DOCUMENT INPUT ==========`);
     console.log(`===== Multi-Agent Processing System =====`);
-    console.log(`Processing document: ${fileName}`);
-    console.log(`File content length: ${fileContent.length} characters`);
+    console.log(`\nPDF Parser Node Output:`);
+    console.log(`- File Name: ${fileName}`);
+    console.log(`- Content Length: ${fileContent.length} characters`);
     
     if (metadata) {
-      console.log(`PDF Metadata:`, JSON.stringify(metadata));
+      console.log(`\nMetadata from PDF Parser:`);
+      console.log(JSON.stringify(metadata, null, 2));
     }
+    
+    console.log(`\nContent Preview (first 500 chars):`);
+    console.log(fileContent.substring(0, 500));
+    
+    if (fileContent.length > 500) {
+      console.log(`\nContent Preview (last 500 chars):`);
+      console.log(`...${fileContent.substring(Math.max(0, fileContent.length - 500))}`);
+    }
+    console.log(`============================================\n`);
 
     const outputs: AgentOutput[] = [];
 

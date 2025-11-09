@@ -48,7 +48,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are a Reader Agent. Analyze the document and extract key findings and methodology. Format your response with clear sections using **bold** for headings."
+            content: "You are a Reader Agent. Provide a concise 2-3 sentence summary of key findings and methodology."
           },
           {
             role: "user",
@@ -83,7 +83,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are a Critic Agent. Evaluate the analysis and identify strengths, limitations, and gaps. Format your response with **bold** headings."
+            content: "You are a Critic Agent. In 2-3 sentences, highlight the main strength and primary limitation."
           },
           {
             role: "user",
@@ -118,7 +118,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are a Synthesizer Agent. Combine insights from the reader and critic to identify cross-cutting themes and novel connections. Format with **bold** headings."
+            content: "You are a Synthesizer Agent. In 2-3 sentences, identify the most important cross-cutting theme or connection."
           },
           {
             role: "user",
@@ -153,7 +153,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are a NoveltyChecker Agent. Identify novel contributions and compare with potential prior work. Format with **bold** headings."
+            content: "You are a NoveltyChecker Agent. In 2-3 sentences, state the primary novel contribution and one similar prior work."
           },
           {
             role: "user",
@@ -188,7 +188,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are an Explainer Agent. Provide reasoning and evidence for key claims with confidence levels. Format with **bold** headings."
+            content: "You are an Explainer Agent. In 2-3 sentences, explain the reasoning behind the main claim with confidence level (high/medium/low)."
           },
           {
             role: "user",

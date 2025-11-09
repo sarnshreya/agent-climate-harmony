@@ -6,9 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Download, FileText } from "lucide-react";
-import { processMockDocument } from "@/lib/mockAgentProcessing";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
+import { supabase } from "@/integrations/supabase/client";
 
 const Index = () => {
   const [agentOutputs, setAgentOutputs] = useState<any[]>([]);
@@ -31,7 +31,7 @@ const Index = () => {
     try {
       toast({
         title: "Parsing PDF...",
-        description: "Extracting text from your document",
+        description: "Extracting actual content from your document",
       });
 
       // Convert file to base64
@@ -40,34 +40,26 @@ const Index = () => {
         new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
       );
 
-      // First, parse the PDF to extract text
-      const parseResponse = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-pdf`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            file: base64,
-            fileName: selectedFile.name,
-          }),
+      // Call PDF parser node to extract metadata and raw content
+      const { data: parseData, error: parseError } = await supabase.functions.invoke('parse-pdf', {
+        body: { 
+          file: base64,
+          fileName: selectedFile.name 
         }
-      );
+      });
 
-      if (!parseResponse.ok) {
-        throw new Error("Failed to parse PDF");
+      if (parseError) {
+        throw new Error(parseError.message || "Failed to parse PDF");
       }
 
-      const parseData = await parseResponse.json();
-      
-      // Parser node outputs: metadata and rawText
+      // Parser node outputs: metadata and rawText (actual PDF content)
       const metadata = parseData.metadata;
-      const rawText = parseData.rawText;
+      const actualContent = parseData.rawText;
       
-      console.log('PDF Parser Output:');
-      console.log('Metadata:', metadata);
-      console.log('Raw text length:', rawText.length);
+      console.log('PDF Parser Node Output:');
+      console.log('- Metadata:', metadata);
+      console.log('- Actual Content Length:', actualContent.length);
+      console.log('- Content Preview:', actualContent.substring(0, 200));
       
       if (parseData.error) {
         throw new Error(parseData.error);
@@ -75,32 +67,23 @@ const Index = () => {
       
       toast({
         title: "PDF parsed successfully",
-        description: `Extracted ${metadata.extractedTextLength} characters from ${metadata.estimatedPages} estimated pages`,
+        description: `Extracted ${metadata.extractedTextLength} characters. Sending to Reader Agent...`,
       });
 
-      // Now send ONLY the raw text to process-document (Reader Agent input)
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-document`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            fileName: metadata.fileName,
-            fileContent: rawText,  // Raw text fed to Reader Agent
-            metadata: metadata,     // Pass metadata for context
-          }),
+      // Send actual PDF content to Reader Agent
+      const { data: processData, error: processError } = await supabase.functions.invoke('process-document', {
+        body: {
+          fileName: metadata.fileName,
+          fileContent: actualContent,  // Actual PDF content fed to Reader Agent
+          metadata: metadata,
         }
-      );
+      });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to process document");
+      if (processError) {
+        throw new Error(processError.message || "Failed to process document");
       }
 
-      const data = await response.json();
-      setAgentOutputs(data.outputs);
+      setAgentOutputs(processData.outputs);
       
       toast({
         title: "Processing complete",

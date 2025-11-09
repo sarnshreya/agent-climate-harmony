@@ -41,9 +41,10 @@ serve(async (req) => {
 
     const outputs: AgentOutput[] = [];
 
-    // Reader Agent - Receives raw text from PDF Parser node
+    // Reader Agent - Receives actual PDF content from Parser node
     console.log("\n===== Running Reader Agent =====");
-    console.log("Input: Raw text from PDF Parser node");
+    console.log("Input: Actual PDF content from PDF Parser node (raw text output)");
+    console.log("Content length:", fileContent.length, "characters");
     
     const readerResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -56,11 +57,11 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are a Reader Agent. You receive raw text extracted from a PDF document. Analyze the content and extract key findings, methodology, and important information. Format your response with clear sections using **bold** for headings."
+            content: "You are a Reader Agent. You receive the actual content extracted from a PDF document (raw text output from PDF Parser node). Analyze this content and extract key findings, methodology, and important information. Format your response with clear sections using **bold** for headings."
           },
           {
             role: "user",
-            content: `Analyze this document text:\n\nFilename: ${fileName}\n\nRaw Text:\n${fileContent}`
+            content: `Analyze this document content (extracted from PDF):\n\nFilename: ${fileName}\n\nActual PDF Content:\n${fileContent}`
           }
         ],
       }),

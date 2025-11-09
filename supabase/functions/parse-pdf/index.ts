@@ -35,7 +35,7 @@ async function extractTextFromPDF(base64Data: string, fileName: string): Promise
     console.log(`[Unstructured API] Sending request to API...`);
     
     // Call Unstructured API
-    const response = await fetch('https://api.unstructured.io/general/v0/general', {
+    const response = await fetch('https://api.unstructuredapp.io/general/v0/general', {
       method: 'POST',
       headers: {
         'unstructured-api-key': UNSTRUCTURED_API_KEY,

@@ -76,7 +76,7 @@ export const DocumentUpload = ({ onFileChange, selectedFile }: DocumentUploadPro
           id="file-upload"
         />
         <label htmlFor="file-upload">
-          <Button variant="secondary" asChild>
+          <Button asChild>
             <span>{selectedFile ? "Change File" : "Choose File"}</span>
           </Button>
         </label>

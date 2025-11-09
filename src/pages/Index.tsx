@@ -125,11 +125,11 @@ const Index = () => {
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  <Button onClick={downloadJSON} variant="outline" size="sm">
+                  <Button onClick={downloadJSON} size="sm">
                     <FileText className="h-4 w-4 mr-2" />
                     Download JSON
                   </Button>
-                  <Button onClick={downloadPDF} variant="outline" size="sm">
+                  <Button onClick={downloadPDF} size="sm">
                     <Download className="h-4 w-4 mr-2" />
                     Download PDF
                   </Button>

@@ -231,10 +231,49 @@ serve(async (req) => {
     outputs.push({
       agent: "Editor Agent",
       icon: "✍️",
-      title: "Final Report",
+      title: "Edited Analysis",
       receivedFrom: ["Synthesis Agent"],
-      sentTo: ["Output"],
+      sentTo: ["Coordinator Agent"],
       content: editorContent.split("\n\n").filter((p: string) => p.trim()),
+    });
+
+    // Coordinator Agent
+    console.log("\n===== Running Coordinator Agent =====");
+    const coordinatorResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: "You are a Coordinator Agent. Generate a comprehensive final report that aggregates ALL insights from previous agents. Your report MUST include detailed sections for: document overview, key findings, critical analysis, novel contributions, reasoning with confidence levels, and actionable recommendations. Use **bold** headings and ensure thorough coverage."
+          },
+          {
+            role: "user",
+            content: `Create a final comprehensive report by coordinating these analyses:\n\nReader Analysis:\n${readerContent}\n\nCritic Feedback:\n${criticContent}\n\nSynthesis:\n${synthesisContent}\n\nEdited Version:\n${editorContent}`
+          }
+        ],
+      }),
+    });
+
+    if (!coordinatorResponse.ok) {
+      throw new Error(`Coordinator Agent failed: ${coordinatorResponse.status}`);
+    }
+
+    const coordinatorData = await coordinatorResponse.json();
+    const coordinatorContent = coordinatorData.choices?.[0]?.message?.content || "No coordinated report available";
+
+    outputs.push({
+      agent: "Coordinator Agent",
+      icon: "🎯",
+      title: "Final Report",
+      receivedFrom: ["Reader Agent", "Critic Agent", "Synthesis Agent", "Editor Agent"],
+      sentTo: ["Output"],
+      content: coordinatorContent.split("\n\n").filter((p: string) => p.trim()),
     });
 
     console.log(`\n===== Multi-Agent Processing Complete =====`);

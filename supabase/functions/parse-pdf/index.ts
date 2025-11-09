@@ -31,16 +31,42 @@ function isReadableText(text: string): boolean {
   return printableRatio > 0.7 && /[a-zA-Z]{3,}/.test(text);
 }
 
+// Metadata patterns to exclude
+const METADATA_PATTERNS = [
+  /creator/i,
+  /producer/i,
+  /creationdate/i,
+  /moddate/i,
+  /photoshop/i,
+  /adobe/i,
+  /pdf-?\d/i,
+  /title/i,
+  /author/i,
+  /subject/i,
+  /keywords/i,
+  /xmp/i,
+  /metadata/i,
+  /catalog/i,
+  /page\s*\d+/i,
+  /^\d{4}-\d{2}-\d{2}/,  // dates
+  /^[A-F0-9]{32,}$/i,    // hex strings
+];
+
+// Check if text looks like metadata
+function isMetadata(text: string): boolean {
+  return METADATA_PATTERNS.some(pattern => pattern.test(text));
+}
+
 // Extract text using standard PDF parsing
 function extractTextFromPDF(pdfText: string): string {
-  const extractedTexts: Set<string> = new Set();
+  const extractedTexts: string[] = [];
   
   // Method 1: Extract from Tj operator (single text string)
   const tjPattern = /\(([^)]*(?:\\.[^)]*)*)\)\s*Tj/g;
   for (const match of pdfText.matchAll(tjPattern)) {
     const decoded = decodePDFText(match[1]);
-    if (isReadableText(decoded)) {
-      extractedTexts.add(decoded.trim());
+    if (isReadableText(decoded) && !isMetadata(decoded)) {
+      extractedTexts.push(decoded.trim());
     }
   }
   
@@ -52,8 +78,8 @@ function extractTextFromPDF(pdfText: string): string {
     
     for (const strMatch of arrayContent.matchAll(stringPattern)) {
       const decoded = decodePDFText(strMatch[1]);
-      if (isReadableText(decoded)) {
-        extractedTexts.add(decoded.trim());
+      if (isReadableText(decoded) && !isMetadata(decoded)) {
+        extractedTexts.push(decoded.trim());
       }
     }
   }
@@ -66,16 +92,29 @@ function extractTextFromPDF(pdfText: string): string {
     
     for (const textMatch of block.matchAll(textPattern)) {
       const decoded = decodePDFText(textMatch[1]);
-      if (isReadableText(decoded)) {
-        extractedTexts.add(decoded.trim());
+      if (isReadableText(decoded) && !isMetadata(decoded)) {
+        extractedTexts.push(decoded.trim());
       }
     }
   }
 
+  // Filter out duplicates and metadata-looking strings
+  const uniqueTexts = [...new Set(extractedTexts)]
+    .filter(text => {
+      // Must be at least 5 characters
+      if (text.length < 5) return false;
+      
+      // Must have at least one space (actual sentences)
+      if (!text.includes(' ')) return false;
+      
+      // Must not be all uppercase (likely headers/metadata)
+      if (text === text.toUpperCase() && text.length < 30) return false;
+      
+      return true;
+    });
+
   // Combine and clean text
-  let content = Array.from(extractedTexts)
-    .filter(text => text.length > 0)
-    .join(' ');
+  let content = uniqueTexts.join(' ');
   
   // Clean up excessive whitespace while preserving structure
   return content
@@ -210,15 +249,16 @@ serve(async (req) => {
       fileSize: bytes.length,
       extractedTextLength: actualContent.length,
       parsingDate: new Date().toISOString(),
-      extractionMethod: 'Enhanced multi-pattern PDF text extraction with encoding validation',
+      extractionMethod: 'Enhanced multi-pattern PDF text extraction with metadata filtering',
       ocrUsed: false,
     };
 
     console.log('Standard extraction - content length:', actualContent.length);
+    console.log('Standard extraction preview:', actualContent.substring(0, 200));
 
     // If standard extraction fails or produces very little text, try OCR
-    if (!actualContent || actualContent.length < 100) {
-      console.log('Standard extraction insufficient, attempting OCR...');
+    if (!actualContent || actualContent.length < 200) {
+      console.log('Standard extraction insufficient, attempting OCR as primary method...');
       
       const ocrText = await performOCR(file);
       
@@ -228,6 +268,7 @@ serve(async (req) => {
         metadata.ocrUsed = true;
         metadata.extractedTextLength = actualContent.length;
         console.log('OCR successful - content length:', actualContent.length);
+        console.log('OCR extraction preview:', actualContent.substring(0, 200));
       }
     }
 

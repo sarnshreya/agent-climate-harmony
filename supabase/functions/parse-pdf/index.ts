@@ -69,13 +69,19 @@ Your output will be ground-truth input for a downstream Reader agent.`
     }
 
     const data = await response.json();
+    console.log(`[OCR] Full API Response:`, JSON.stringify(data, null, 2));
+    
     const extractedText = data.choices?.[0]?.message?.content || "";
     
     if (!extractedText.trim()) {
+      console.error(`[OCR] Empty result - API returned:`, data);
       throw new Error("OCR returned empty result");
     }
     
-    console.log(`[OCR] Success - extracted ${extractedText.length} characters`);
+    console.log(`[OCR] ✅ SUCCESS - Extracted ${extractedText.length} characters`);
+    console.log(`[OCR] Preview (first 500 chars):\n${extractedText.substring(0, 500)}...`);
+    console.log(`[OCR] Preview (last 500 chars):\n...${extractedText.substring(Math.max(0, extractedText.length - 500))}`);
+    
     return extractedText.trim();
   } catch (error) {
     console.error("[OCR] Processing error:", error);
@@ -118,7 +124,14 @@ serve(async (req) => {
       extractedText = await performPDFOCR(file, fileName);
       extractionMethod = 'OCR (Lovable AI - google/gemini-2.5-flash)';
     } catch (ocrError) {
-      console.error('[PARSER] OCR failed:', ocrError);
+      console.error('\n========== PDF PARSER ERROR ==========');
+      console.error('[PARSER] OCR FAILED');
+      console.error('Error Type:', ocrError instanceof Error ? ocrError.constructor.name : typeof ocrError);
+      console.error('Error Message:', ocrError instanceof Error ? ocrError.message : String(ocrError));
+      console.error('Error Details:', ocrError);
+      console.error('File Info:', { fileName, fileSize: bytes.length });
+      console.error('======================================\n');
+      
       return new Response(
         JSON.stringify({ 
           error: 'OCR extraction failed',
@@ -142,8 +155,14 @@ serve(async (req) => {
       processingMode: 'deterministic-ocr',
     };
 
-    console.log(`[PARSER] Success - ${extractedText.length} characters extracted`);
-    console.log(`[PARSER] Preview:\n${extractedText.substring(0, 300)}...`);
+    console.log(`\n========== PDF PARSER OUTPUT ==========`);
+    console.log(`Metadata:`, JSON.stringify(metadata, null, 2));
+    console.log(`\nActual Content Length: ${extractedText.length}`);
+    console.log(`\nContent Preview (first 500 chars):\n${extractedText.substring(0, 500)}`);
+    if (extractedText.length > 500) {
+      console.log(`\nContent Preview (last 500 chars):\n...${extractedText.substring(Math.max(0, extractedText.length - 500))}`);
+    }
+    console.log(`========================================\n`);
 
     return new Response(
       JSON.stringify({ 

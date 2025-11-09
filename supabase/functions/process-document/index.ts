@@ -26,9 +26,9 @@ serve(async (req) => {
       throw new Error("fileName and fileContent are required");
     }
 
-    const GOOGLE_API_KEY = Deno.env.get("GOOGLE_API_KEY");
-    if (!GOOGLE_API_KEY) {
-      throw new Error("GOOGLE_API_KEY is not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
     }
 
     console.log(`===== DEBUG MODE: Only Reader Agent =====`);
@@ -38,23 +38,26 @@ serve(async (req) => {
 
     const outputs: AgentOutput[] = [];
 
-    // Reader Agent - DEBUG MODE using Google Gemini API directly
-    console.log("\n===== Running Reader Agent with Google API =====");
-    const readerResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_API_KEY}`, {
+    // Reader Agent - DEBUG MODE using Lovable AI
+    console.log("\n===== Running Reader Agent with Lovable AI =====");
+    const readerResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: `You are a Reader Agent. Analyze the document and extract key findings and methodology. Format your response with clear sections using **bold** for headings.\n\nAnalyze this document:\n\nFilename: ${fileName}\n\nContent:\n${fileContent}`
-          }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 2048,
-        }
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: "You are a Reader Agent. Analyze the document and extract key findings and methodology. Format your response with clear sections using **bold** for headings."
+          },
+          {
+            role: "user",
+            content: `Analyze this document:\n\nFilename: ${fileName}\n\nContent:\n${fileContent}`
+          }
+        ],
       }),
     });
 
@@ -79,13 +82,13 @@ serve(async (req) => {
 
     const readerData = await readerResponse.json();
     console.log(`Reader response structure:`, JSON.stringify({
-      hasCandidates: !!readerData.candidates,
-      candidatesLength: readerData.candidates?.length,
-      hasContent: !!readerData.candidates?.[0]?.content,
-      hasParts: !!readerData.candidates?.[0]?.content?.parts
+      hasChoices: !!readerData.choices,
+      choicesLength: readerData.choices?.length,
+      hasMessage: !!readerData.choices?.[0]?.message,
+      hasContent: !!readerData.choices?.[0]?.message?.content
     }));
     
-    const readerContent = readerData.candidates?.[0]?.content?.parts?.[0]?.text || "No analysis available";
+    const readerContent = readerData.choices?.[0]?.message?.content || "No analysis available";
     console.log(`Reader content length: ${readerContent.length} characters`);
     console.log(`Reader content (first 500 chars):`, readerContent.substring(0, 500));
     console.log(`Full reader content:`, readerContent);

@@ -48,7 +48,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are a Reader Agent. Analyze the document and extract key findings, methodology, and data. Be thorough but focus on the most important points."
+            content: "You are a Reader Agent. Analyze the document and extract key findings and methodology. Format your response with clear sections using **bold** for headings."
           },
           {
             role: "user",
@@ -83,7 +83,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are a Critic Agent. Evaluate the analysis and identify strengths and limitations. Be specific but concise."
+            content: "You are a Critic Agent. Evaluate the analysis and identify strengths, limitations, and gaps. Format your response with **bold** headings."
           },
           {
             role: "user",
@@ -118,7 +118,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are a Synthesizer Agent. Identify cross-cutting themes and connections. Focus on the most significant insights."
+            content: "You are a Synthesizer Agent. Combine insights from the reader and critic to identify cross-cutting themes and novel connections. Format with **bold** headings."
           },
           {
             role: "user",
@@ -153,7 +153,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are a NoveltyChecker Agent. Identify novel contributions and compare with relevant prior work. Be specific but focused."
+            content: "You are a NoveltyChecker Agent. Identify novel contributions and compare with potential prior work. Format with **bold** headings."
           },
           {
             role: "user",
@@ -188,7 +188,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are an Explainer Agent. Provide reasoning and evidence for key claims with confidence levels. Be clear and focused on the most important points."
+            content: "You are an Explainer Agent. Provide reasoning and evidence for key claims with confidence levels. Format with **bold** headings."
           },
           {
             role: "user",

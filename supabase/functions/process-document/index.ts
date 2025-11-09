@@ -20,10 +20,10 @@ serve(async (req) => {
   }
 
   try {
-    const { file, fileName } = await req.json();
+    const { fileName, fileContent } = await req.json();
     
-    if (!file || !fileName) {
-      throw new Error("file and fileName are required");
+    if (!fileName || !fileContent) {
+      throw new Error("fileName and fileContent are required");
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -33,24 +33,12 @@ serve(async (req) => {
 
     console.log(`===== Multi-Agent Processing System =====`);
     console.log(`Processing document: ${fileName}`);
-    
-    // Decode base64 PDF file
-    const binaryString = atob(file);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    
-    console.log(`PDF size: ${bytes.length} bytes`);
+    console.log(`File content length: ${fileContent.length} characters`);
 
     const outputs: AgentOutput[] = [];
 
-    // Reader Agent - Use multimodal capability to read PDF
+    // Reader Agent
     console.log("\n===== Running Reader Agent =====");
-    
-    // Convert PDF bytes to base64 for API
-    const base64Pdf = btoa(String.fromCharCode(...bytes));
-    
     const readerResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -61,19 +49,12 @@ serve(async (req) => {
         model: "google/gemini-2.5-flash",
         messages: [
           {
+            role: "system",
+            content: "You are a Reader Agent. Analyze the document and extract key findings and methodology. Format your response with clear sections using **bold** for headings."
+          },
+          {
             role: "user",
-            content: [
-              {
-                type: "text",
-                text: "You are a Reader Agent. Analyze this PDF document and extract key findings, methodology, and important information. Format your response with clear sections using **bold** for headings."
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:application/pdf;base64,${base64Pdf}`
-                }
-              }
-            ]
+            content: `Analyze this document:\n\nFilename: ${fileName}\n\nContent:\n${fileContent}`
           }
         ],
       }),

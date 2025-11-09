@@ -30,8 +30,8 @@ const Index = () => {
     
     try {
       toast({
-        title: "Processing PDF...",
-        description: "Analyzing with AI agents",
+        title: "Parsing PDF...",
+        description: "Extracting text from your document",
       });
 
       // Convert file to base64
@@ -40,8 +40,9 @@ const Index = () => {
         new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
       );
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-document`,
+      // First, parse the PDF to extract text
+      const parseResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-pdf`,
         {
           method: "POST",
           headers: {
@@ -50,6 +51,35 @@ const Index = () => {
           body: JSON.stringify({
             file: base64,
             fileName: selectedFile.name,
+          }),
+        }
+      );
+
+      if (!parseResponse.ok) {
+        throw new Error("Failed to parse PDF");
+      }
+
+      const parseData = await parseResponse.json();
+      const extractedText = parseData.content;
+      
+      console.log('Extracted text length:', extractedText.length);
+      
+      toast({
+        title: "PDF parsed successfully",
+        description: "Now analyzing with AI agents...",
+      });
+
+      // Now send the extracted text to process-document
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-document`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            fileName: selectedFile.name,
+            fileContent: extractedText,
           }),
         }
       );

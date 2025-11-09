@@ -1,4 +1,3 @@
-// This function has been deprecated - PDF parsing is now handled directly in process-document
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -11,10 +10,77 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  return new Response(
-    JSON.stringify({ 
-      error: 'This function is deprecated. Please use process-document directly with the PDF file.' 
-    }),
-    { status: 410, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
+  try {
+    const { file, fileName } = await req.json();
+
+    if (!file) {
+      return new Response(
+        JSON.stringify({ error: 'No file provided' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Parsing PDF:', fileName);
+
+    // Decode base64 to binary
+    const binaryString = atob(file);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    console.log('PDF size:', bytes.length, 'bytes');
+
+    // Convert binary to string
+    const decoder = new TextDecoder('utf-8', { fatal: false });
+    const rawContent = decoder.decode(bytes);
+    
+    // Extract text between stream and endstream markers (PDF text objects)
+    const streams: string[] = [];
+    const streamRegex = /stream\s+([\s\S]*?)\s+endstream/g;
+    let match;
+    
+    while ((match = streamRegex.exec(rawContent)) !== null) {
+      streams.push(match[1]);
+    }
+    
+    // Combine all streams and clean
+    let extractedText = streams.join(' ');
+    
+    // Remove PDF control sequences and clean up
+    extractedText = extractedText
+      .replace(/\/[A-Za-z][A-Za-z0-9]*/g, ' ')  // Remove PDF commands
+      .replace(/[<>\\[\](){}]/g, ' ')            // Remove PDF syntax
+      .replace(/\d+\s+\d+\s+obj/g, '')           // Remove object markers
+      .replace(/endobj/g, '')                     // Remove object end markers
+      .replace(/[^\x20-\x7E\s]/g, '')            // Keep only printable ASCII
+      .replace(/\s+/g, ' ')                       // Normalize whitespace
+      .trim();
+
+    console.log('Extracted text length:', extractedText.length);
+
+    if (!extractedText || extractedText.length < 50) {
+      return new Response(
+        JSON.stringify({ 
+          content: 'Unable to extract sufficient text from PDF. The file may be image-based, encrypted, or use complex formatting.',
+          fileName 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({ 
+        content: extractedText,
+        fileName 
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('PDF parsing error:', error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to parse PDF' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
 });

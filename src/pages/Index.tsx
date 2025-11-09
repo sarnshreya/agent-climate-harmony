@@ -30,42 +30,15 @@ const Index = () => {
     
     try {
       toast({
-        title: "Parsing PDF...",
-        description: "Extracting text from your document",
+        title: "Processing PDF...",
+        description: "Analyzing with AI agents",
       });
 
-      // Convert file to base64 for PDF parser
+      // Convert file to base64
       const arrayBuffer = await selectedFile.arrayBuffer();
       const base64 = btoa(
         new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
       );
-
-      const parseResponse = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-pdf`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            file: base64,
-            fileName: selectedFile.name,
-          }),
-        }
-      );
-
-      if (!parseResponse.ok) {
-        throw new Error("Failed to parse PDF document");
-      }
-
-      const parseData = await parseResponse.json();
-      // Extract only the raw text content, not the metadata
-      const fileContent = parseData.content;
-      
-      toast({
-        title: "PDF parsed successfully",
-        description: "Now analyzing with AI agents...",
-      });
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-document`,
@@ -75,8 +48,8 @@ const Index = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
+            file: base64,
             fileName: selectedFile.name,
-            fileContent: fileContent,
           }),
         }
       );

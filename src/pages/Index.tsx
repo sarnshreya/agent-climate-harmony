@@ -176,7 +176,7 @@ const Index = () => {
                   <AgentConversation outputs={agentOutputs} />
                 </TabsContent>
                 <TabsContent value="workflow" className="mt-6">
-                  <AgentWorkflowGraph />
+                  <AgentWorkflowGraph outputs={agentOutputs} />
                 </TabsContent>
               </Tabs>
             </CardContent>
@@ -192,7 +192,7 @@ const Index = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <AgentWorkflowGraph />
+            <AgentWorkflowGraph outputs={agentOutputs} />
           </CardContent>
         </Card>
 

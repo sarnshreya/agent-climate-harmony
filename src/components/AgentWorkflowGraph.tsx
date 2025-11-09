@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import ReactFlow, {
   Node,
   Edge,
@@ -12,8 +12,44 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { Card } from './ui/card';
 
-const initialNodes: Node[] = [
-  {
+interface AgentOutput {
+  agent: string;
+  icon: string;
+  title: string;
+  receivedFrom: string[];
+  sentTo: string[];
+  content: string[];
+}
+
+interface AgentWorkflowGraphProps {
+  outputs?: AgentOutput[];
+}
+
+const agentIcons: Record<string, string> = {
+  'Reader Agent': '📖',
+  'Critic Agent': '🔍',
+  'Synthesizer Agent': '🧩',
+  'NoveltyChecker Agent': '🔬',
+  'Explainer Agent': '💡',
+  'Coordinator Agent': '📊',
+};
+
+const agentDescriptions: Record<string, string> = {
+  'Reader Agent': 'Extracts key findings',
+  'Critic Agent': 'Analyzes strengths & gaps',
+  'Synthesizer Agent': 'Creates insights',
+  'NoveltyChecker Agent': 'Analyzes novelty',
+  'Explainer Agent': 'Provides reasoning',
+  'Coordinator Agent': 'Final Report',
+};
+
+const generateDynamicNodesAndEdges = (outputs: AgentOutput[]) => {
+  const nodes: Node[] = [];
+  const edges: Edge[] = [];
+  const agentPositions: Record<string, { x: number; y: number }> = {};
+  
+  // Add input document node
+  nodes.push({
     id: 'input',
     type: 'input',
     data: { label: 'Input Document' },
@@ -26,204 +62,148 @@ const initialNodes: Node[] = [
       padding: '10px',
       fontWeight: 'bold',
     },
-  },
-  {
-    id: 'reader',
-    data: { label: 'Reader Agent\n📖 Extracts key findings' },
-    position: { x: 250, y: 100 },
-    style: {
-      background: 'hsl(var(--primary) / 0.1)',
-      color: 'hsl(var(--primary))',
-      border: '2px solid hsl(var(--primary))',
-      borderRadius: '8px',
-      padding: '15px',
-      whiteSpace: 'pre-line',
-      textAlign: 'center',
-    },
-  },
-  {
-    id: 'critic',
-    data: { label: 'Critic Agent\n🔍 Analyzes strengths & gaps' },
-    position: { x: 50, y: 250 },
-    style: {
-      background: 'hsl(var(--primary) / 0.1)',
-      color: 'hsl(var(--primary))',
-      border: '2px solid hsl(var(--primary))',
-      borderRadius: '8px',
-      padding: '15px',
-      whiteSpace: 'pre-line',
-      textAlign: 'center',
-    },
-  },
-  {
-    id: 'synthesizer',
-    data: { label: 'Synthesizer Agent\n🧩 Creates insights' },
-    position: { x: 450, y: 250 },
-    style: {
-      background: 'hsl(var(--primary) / 0.1)',
-      color: 'hsl(var(--primary))',
-      border: '2px solid hsl(var(--primary))',
-      borderRadius: '8px',
-      padding: '15px',
-      whiteSpace: 'pre-line',
-      textAlign: 'center',
-    },
-  },
-  {
-    id: 'novelty',
-    data: { label: 'NoveltyChecker Agent\n🔬 Analyzes novelty' },
-    position: { x: 250, y: 350 },
-    style: {
-      background: 'hsl(var(--primary) / 0.1)',
-      color: 'hsl(var(--primary))',
-      border: '2px solid hsl(var(--primary))',
-      borderRadius: '8px',
-      padding: '15px',
-      whiteSpace: 'pre-line',
-      textAlign: 'center',
-    },
-  },
-  {
-    id: 'explainer',
-    data: { label: 'Explainer Agent\n💡 Provides reasoning' },
-    position: { x: 250, y: 500 },
-    style: {
-      background: 'hsl(var(--primary) / 0.1)',
-      color: 'hsl(var(--primary))',
-      border: '2px solid hsl(var(--primary))',
-      borderRadius: '8px',
-      padding: '15px',
-      whiteSpace: 'pre-line',
-      textAlign: 'center',
-    },
-  },
-  {
-    id: 'coordinator',
-    type: 'output',
-    data: { label: 'Coordinator Agent\n📊 Final Report' },
-    position: { x: 250, y: 650 },
-    style: {
-      background: 'hsl(var(--primary))',
-      color: 'hsl(var(--primary-foreground))',
-      border: '2px solid hsl(var(--primary))',
-      borderRadius: '8px',
-      padding: '15px',
-      fontWeight: 'bold',
-      whiteSpace: 'pre-line',
-      textAlign: 'center',
-    },
-  },
-];
+  });
 
-const initialEdges: Edge[] = [
-  {
-    id: 'input-reader',
-    source: 'input',
-    target: 'reader',
-    animated: true,
-    style: { stroke: 'hsl(var(--primary))' },
-    markerEnd: { type: MarkerType.ArrowClosed, color: 'hsl(var(--primary))' },
-  },
-  {
-    id: 'reader-critic',
-    source: 'reader',
-    target: 'critic',
-    label: 'summary',
-    animated: true,
-    style: { stroke: 'hsl(var(--primary))' },
-    markerEnd: { type: MarkerType.ArrowClosed, color: 'hsl(var(--primary))' },
-  },
-  {
-    id: 'reader-synthesizer',
-    source: 'reader',
-    target: 'synthesizer',
-    label: 'summary',
-    animated: true,
-    style: { stroke: 'hsl(var(--primary))' },
-    markerEnd: { type: MarkerType.ArrowClosed, color: 'hsl(var(--primary))' },
-  },
-  {
-    id: 'critic-synthesizer',
-    source: 'critic',
-    target: 'synthesizer',
-    label: 'critique',
-    animated: true,
-    style: { stroke: 'hsl(var(--primary))' },
-    markerEnd: { type: MarkerType.ArrowClosed, color: 'hsl(var(--primary))' },
-  },
-  {
-    id: 'reader-novelty',
-    source: 'reader',
-    target: 'novelty',
-    label: 'summary',
-    animated: true,
-    style: { stroke: 'hsl(var(--primary))' },
-    markerEnd: { type: MarkerType.ArrowClosed, color: 'hsl(var(--primary))' },
-  },
-  {
-    id: 'synthesizer-novelty',
-    source: 'synthesizer',
-    target: 'novelty',
-    label: 'insights',
-    animated: true,
-    style: { stroke: 'hsl(var(--primary))' },
-    markerEnd: { type: MarkerType.ArrowClosed, color: 'hsl(var(--primary))' },
-  },
-  {
-    id: 'novelty-explainer',
-    source: 'novelty',
-    target: 'explainer',
-    label: 'novelty report',
-    animated: true,
-    style: { stroke: 'hsl(var(--primary))' },
-    markerEnd: { type: MarkerType.ArrowClosed, color: 'hsl(var(--primary))' },
-  },
-  {
-    id: 'reader-coordinator',
-    source: 'reader',
-    target: 'coordinator',
-    label: 'summary',
-    style: { stroke: 'hsl(var(--primary) / 0.5)', strokeDasharray: '5,5' },
-    markerEnd: { type: MarkerType.ArrowClosed, color: 'hsl(var(--primary) / 0.5)' },
-  },
-  {
-    id: 'critic-coordinator',
-    source: 'critic',
-    target: 'coordinator',
-    label: 'critique',
-    style: { stroke: 'hsl(var(--primary) / 0.5)', strokeDasharray: '5,5' },
-    markerEnd: { type: MarkerType.ArrowClosed, color: 'hsl(var(--primary) / 0.5)' },
-  },
-  {
-    id: 'synthesizer-coordinator',
-    source: 'synthesizer',
-    target: 'coordinator',
-    label: 'insights',
-    style: { stroke: 'hsl(var(--primary) / 0.5)', strokeDasharray: '5,5' },
-    markerEnd: { type: MarkerType.ArrowClosed, color: 'hsl(var(--primary) / 0.5)' },
-  },
-  {
-    id: 'novelty-coordinator',
-    source: 'novelty',
-    target: 'coordinator',
-    label: 'novelty report',
-    style: { stroke: 'hsl(var(--primary) / 0.5)', strokeDasharray: '5,5' },
-    markerEnd: { type: MarkerType.ArrowClosed, color: 'hsl(var(--primary) / 0.5)' },
-  },
-  {
-    id: 'explainer-coordinator',
-    source: 'explainer',
-    target: 'coordinator',
-    label: 'reasoning',
-    animated: true,
-    style: { stroke: 'hsl(var(--primary))' },
-    markerEnd: { type: MarkerType.ArrowClosed, color: 'hsl(var(--primary))' },
-  },
-];
+  // Calculate vertical positions for agents
+  let yPosition = 100;
+  const yStep = 120;
+  const agentIds: Record<string, string> = {};
 
-export const AgentWorkflowGraph = () => {
-  const [nodes, , onNodesChange] = useNodesState(initialNodes);
-  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
+  outputs.forEach((output, index) => {
+    const agentId = output.agent.toLowerCase().replace(/\s+/g, '-');
+    agentIds[output.agent] = agentId;
+    
+    const isCoordinator = output.agent === 'Coordinator Agent';
+    const icon = agentIcons[output.agent] || '🤖';
+    const description = agentDescriptions[output.agent] || 'Processing';
+    
+    nodes.push({
+      id: agentId,
+      type: isCoordinator ? 'output' : undefined,
+      data: { label: `${output.agent}\n${icon} ${description}` },
+      position: { x: 250, y: yPosition },
+      style: {
+        background: isCoordinator ? 'hsl(var(--primary))' : 'hsl(var(--primary) / 0.1)',
+        color: isCoordinator ? 'hsl(var(--primary-foreground))' : 'hsl(var(--primary))',
+        border: '2px solid hsl(var(--primary))',
+        borderRadius: '8px',
+        padding: '15px',
+        whiteSpace: 'pre-line' as const,
+        textAlign: 'center' as const,
+        fontWeight: isCoordinator ? 'bold' : 'normal',
+      },
+    });
+
+    agentPositions[output.agent] = { x: 250, y: yPosition };
+    yPosition += yStep;
+  });
+
+  // Create edges based on communication flow
+  outputs.forEach((output) => {
+    const targetId = agentIds[output.agent];
+    
+    // Handle edges from Input Document
+    if (output.receivedFrom.includes('Input Document')) {
+      edges.push({
+        id: `input-${targetId}`,
+        source: 'input',
+        target: targetId,
+        animated: true,
+        style: { stroke: 'hsl(var(--primary))' },
+        markerEnd: { type: MarkerType.ArrowClosed, color: 'hsl(var(--primary))' },
+      });
+    }
+
+    // Handle edges from other agents
+    output.receivedFrom.forEach((sourceAgent) => {
+      if (sourceAgent !== 'Input Document') {
+        const sourceId = agentIds[sourceAgent];
+        if (sourceId) {
+          const edgeId = `${sourceId}-${targetId}`;
+          // Check if edge already exists
+          if (!edges.some(e => e.id === edgeId)) {
+            const isDirectFlow = output.sentTo.length > 0 && !output.sentTo.includes('Coordinator Agent');
+            edges.push({
+              id: edgeId,
+              source: sourceId,
+              target: targetId,
+              animated: isDirectFlow,
+              style: { 
+                stroke: isDirectFlow ? 'hsl(var(--primary))' : 'hsl(var(--primary) / 0.5)',
+                strokeDasharray: isDirectFlow ? undefined : '5,5'
+              },
+              markerEnd: { 
+                type: MarkerType.ArrowClosed, 
+                color: isDirectFlow ? 'hsl(var(--primary))' : 'hsl(var(--primary) / 0.5)' 
+              },
+            });
+          }
+        }
+      }
+    });
+  });
+
+  return { nodes, edges };
+};
+
+export const AgentWorkflowGraph = ({ outputs }: AgentWorkflowGraphProps) => {
+  const { nodes: dynamicNodes, edges: dynamicEdges } = useMemo(() => {
+    if (!outputs || outputs.length === 0) {
+      // Return default static graph
+      return {
+        nodes: [
+          {
+            id: 'input',
+            type: 'input',
+            data: { label: 'Input Document' },
+            position: { x: 250, y: 0 },
+            style: {
+              background: 'hsl(var(--primary))',
+              color: 'hsl(var(--primary-foreground))',
+              border: '2px solid hsl(var(--primary))',
+              borderRadius: '8px',
+              padding: '10px',
+              fontWeight: 'bold',
+            },
+          },
+          {
+            id: 'agents',
+            data: { label: 'Multi-Agent System\n🤖 Upload a document to see the workflow' },
+            position: { x: 150, y: 150 },
+            style: {
+              background: 'hsl(var(--primary) / 0.1)',
+              color: 'hsl(var(--primary))',
+              border: '2px solid hsl(var(--primary))',
+              borderRadius: '8px',
+              padding: '20px',
+              whiteSpace: 'pre-line' as const,
+              textAlign: 'center' as const,
+              width: '300px',
+            },
+          },
+        ],
+        edges: [
+          {
+            id: 'input-agents',
+            source: 'input',
+            target: 'agents',
+            animated: true,
+            style: { stroke: 'hsl(var(--primary))', strokeDasharray: '5,5' },
+            markerEnd: { type: MarkerType.ArrowClosed, color: 'hsl(var(--primary))' },
+          },
+        ],
+      };
+    }
+    return generateDynamicNodesAndEdges(outputs);
+  }, [outputs]);
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(dynamicNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(dynamicEdges);
+
+  useEffect(() => {
+    setNodes(dynamicNodes);
+    setEdges(dynamicEdges);
+  }, [dynamicNodes, dynamicEdges, setNodes, setEdges]);
 
   return (
     <Card className="w-full h-[700px] overflow-hidden border-border">

@@ -250,7 +250,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are a Coordinator Agent. Generate a comprehensive final report that aggregates ALL insights from previous agents. Your report MUST include detailed sections for: document overview, key findings, critical analysis, novel contributions, reasoning with confidence levels, and actionable recommendations. Use **bold** headings and ensure thorough coverage."
+            content: "You are a Coordinator Agent. Generate a concise final report (maximum 1-2 pages) that aggregates the MOST IMPORTANT insights from previous agents. Include brief sections for: document overview, key findings, critical analysis, novel contributions, and actionable recommendations. Use **bold** headings. Be extremely concise - focus only on essential points and eliminate redundancy."
           },
           {
             role: "user",

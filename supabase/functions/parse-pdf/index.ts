@@ -31,74 +31,102 @@ serve(async (req) => {
     
     console.log('PDF size:', bytes.length, 'bytes');
 
-    // Convert binary to string and extract actual text content
-    const decoder = new TextDecoder('utf-8', { fatal: false });
-    const rawContent = decoder.decode(bytes);
+    // Convert to text and extract content
+    const decoder = new TextDecoder('latin1'); // Use latin1 for better PDF compatibility
+    const pdfText = decoder.decode(bytes);
     
-    // Extract text from PDF content streams
-    // PDFs store text in content streams between BT (Begin Text) and ET (End Text) operators
-    const textBlocks: string[] = [];
-    const textRegex = /BT\s+([\s\S]*?)\s+ET/g;
+    // Extract text using multiple methods for better coverage
+    const texts: string[] = [];
+    
+    // Method 1: Extract text from Tj operators (most common)
+    const tjRegex = /\(((?:[^()\\]|\\[\\()nrtbf])*)\)\s*Tj/g;
     let match;
-    
-    while ((match = textRegex.exec(rawContent)) !== null) {
-      textBlocks.push(match[1]);
+    while ((match = tjRegex.exec(pdfText)) !== null) {
+      const text = match[1]
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\r')
+        .replace(/\\t/g, '\t')
+        .replace(/\\b/g, '\b')
+        .replace(/\\f/g, '\f')
+        .replace(/\\\\/g, '\\')
+        .replace(/\\\(/g, '(')
+        .replace(/\\\)/g, ')');
+      texts.push(text);
     }
     
-    // Extract actual text strings from text blocks
-    let actualContent = '';
-    
-    for (const block of textBlocks) {
-      // Extract text from parentheses (Tj operator) and angle brackets (hex strings)
-      const stringMatches = block.match(/\(([^)]*)\)|\<([0-9A-Fa-f]+)\>/g);
+    // Method 2: Extract text from TJ array operators
+    const tjArrayRegex = /\[((?:[^\[\]\\]|\\[\\()nrtbf\[\]])*)\]\s*TJ/g;
+    while ((match = tjArrayRegex.exec(pdfText)) !== null) {
+      const arrayContent = match[1];
+      const stringMatches = arrayContent.match(/\(((?:[^()\\]|\\[\\()nrtbf])*)\)/g);
       if (stringMatches) {
         for (const str of stringMatches) {
-          if (str.startsWith('(')) {
-            // Regular string in parentheses
-            actualContent += str.slice(1, -1) + ' ';
-          } else {
-            // Hex string - convert to text
-            const hex = str.slice(1, -1);
-            for (let i = 0; i < hex.length; i += 2) {
-              actualContent += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
-            }
-            actualContent += ' ';
-          }
+          const text = str
+            .slice(1, -1)
+            .replace(/\\n/g, '\n')
+            .replace(/\\r/g, '\r')
+            .replace(/\\t/g, '\t')
+            .replace(/\\b/g, '\b')
+            .replace(/\\f/g, '\f')
+            .replace(/\\\\/g, '\\')
+            .replace(/\\\(/g, '(')
+            .replace(/\\\)/g, ')');
+          texts.push(text);
         }
       }
     }
     
-    // Clean up the extracted content
+    // Method 3: Extract from simple string operators
+    const simpleStringRegex = /\(((?:[^()\\]|\\[\\()nrtbf])+)\)/g;
+    const existingTexts = new Set(texts);
+    while ((match = simpleStringRegex.exec(pdfText)) !== null) {
+      const text = match[1]
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\r')
+        .replace(/\\t/g, '\t')
+        .replace(/\\b/g, '\b')
+        .replace(/\\f/g, '\f')
+        .replace(/\\\\/g, '\\')
+        .replace(/\\\(/g, '(')
+        .replace(/\\\)/g, ')');
+      
+      // Only add if it looks like real text and not already extracted
+      if (text.length > 1 && !existingTexts.has(text) && /[a-zA-Z]/.test(text)) {
+        texts.push(text);
+      }
+    }
+
+    // Combine all extracted texts with spaces
+    let actualContent = texts.join(' ');
+    
+    // Clean up and format
     actualContent = actualContent
-      .replace(/\\n/g, '\n')
-      .replace(/\\r/g, '')
-      .replace(/\\t/g, ' ')
-      .replace(/\\\(/g, '(')
-      .replace(/\\\)/g, ')')
-      .replace(/\\\\/g, '\\')
-      .replace(/\s+/g, ' ')
+      .replace(/\s+/g, ' ')  // Normalize whitespace
+      .replace(/\s*\n\s*/g, '\n')  // Clean line breaks
       .trim();
 
-    // Extract basic metadata about the PDF
+    // Extract basic metadata
     const metadata = {
       fileName: fileName,
       fileSize: bytes.length,
       extractedTextLength: actualContent.length,
-      estimatedPages: Math.ceil(actualContent.length / 2000), // Rough estimate
+      extractedSegments: texts.length,
+      estimatedPages: Math.ceil(actualContent.length / 2500),
       parsingDate: new Date().toISOString(),
-      extractionMethod: 'Text stream extraction from PDF content operators',
+      extractionMethod: 'PDF text operators (Tj, TJ) with multi-method extraction',
     };
 
     console.log('PDF Parser Node Output:');
     console.log('Metadata:', metadata);
+    console.log('Extracted segments:', texts.length);
     console.log('Actual content length:', actualContent.length);
-    console.log('Content preview:', actualContent.substring(0, 200));
+    console.log('Content preview (first 300 chars):', actualContent.substring(0, 300));
 
-    if (!actualContent || actualContent.length < 50) {
+    if (!actualContent || actualContent.length < 100) {
       return new Response(
         JSON.stringify({ 
           metadata,
-          rawText: 'Unable to extract sufficient text from PDF. The file may be image-based, encrypted, or use complex formatting.',
+          rawText: 'Unable to extract sufficient readable text from PDF. The file may be:\n- Image-based (scanned document)\n- Encrypted or password-protected\n- Using complex formatting or non-standard fonts\n- Corrupted',
           error: 'Insufficient text extracted',
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -108,7 +136,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         metadata,
-        rawText: actualContent,  // Actual PDF content
+        rawText: actualContent,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

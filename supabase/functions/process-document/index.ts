@@ -69,7 +69,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are a Reader Agent. You receive the actual content extracted from a PDF document (raw text output from PDF Parser node). Analyze this content and extract key findings, methodology, and important information. Format your response with clear sections using **bold** for headings."
+            content: "You are a Reader Agent. You receive the actual content extracted from a PDF document (raw text output from PDF Parser node). Extract ONLY the most critical findings, methodology, and key information. Be concise and focus on essential points only. Format your response with clear sections using **bold** for headings. Keep your analysis brief."
           },
           {
             role: "user",
@@ -133,7 +133,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are a Critic Agent. Analyze the Reader's findings for weaknesses, gaps, and areas needing improvement. Provide constructive criticism and identify missing perspectives."
+            content: "You are a Critic Agent. Identify ONLY the most significant weaknesses, gaps, and critical areas needing improvement. Be brief and focus on the most important issues only."
           },
           {
             role: "user",
@@ -172,7 +172,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are a Synthesis Agent. Combine insights from the Reader and Critic to create a comprehensive, balanced analysis. Integrate different perspectives and resolve contradictions."
+            content: "You are a Synthesis Agent. Combine ONLY the most important insights from the Reader and Critic. Create a concise, balanced analysis focusing on key points. Keep it brief and eliminate redundancy."
           },
           {
             role: "user",
@@ -211,7 +211,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are an Editor Agent. Polish the synthesized analysis for clarity, coherence, and presentation. Ensure professional formatting and logical flow."
+            content: "You are an Editor Agent. Polish the synthesized analysis for clarity, coherence, and presentation. CRITICAL: The final report MUST NOT exceed 2 pages (approximately 1000-1200 words). Be extremely concise while maintaining professional quality. Remove any redundancy and focus only on the most essential information."
           },
           {
             role: "user",

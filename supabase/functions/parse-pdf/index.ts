@@ -5,157 +5,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Helper function to decode PDF text with proper encoding handling
-function decodePDFText(text: string): string {
-  return text
-    .replace(/\\n/g, ' ')
-    .replace(/\\r/g, ' ')
-    .replace(/\\t/g, ' ')
-    .replace(/\\b/g, '')
-    .replace(/\\f/g, ' ')
-    .replace(/\\\\/g, '\\')
-    .replace(/\\\(/g, '(')
-    .replace(/\\\)/g, ')')
-    .replace(/\\(\d{3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)));
-}
-
-// Validate if text is readable (not binary garbage)
-function isReadableText(text: string): boolean {
-  if (!text || text.length < 2) return false;
-  
-  // Check for reasonable ratio of printable characters
-  const printableChars = text.match(/[\x20-\x7E\n\r\t]/g)?.length || 0;
-  const printableRatio = printableChars / text.length;
-  
-  // Must have at least 70% printable characters and some letters
-  return printableRatio > 0.7 && /[a-zA-Z]{3,}/.test(text);
-}
-
-// Metadata patterns to exclude
-const METADATA_PATTERNS = [
-  /creator/i,
-  /producer/i,
-  /creationdate/i,
-  /moddate/i,
-  /photoshop/i,
-  /adobe/i,
-  /pdf-?\d/i,
-  /title/i,
-  /author/i,
-  /subject/i,
-  /keywords/i,
-  /xmp/i,
-  /metadata/i,
-  /catalog/i,
-  /page\s*\d+/i,
-  /^\d{4}-\d{2}-\d{2}/,  // dates
-  /^[A-F0-9]{32,}$/i,    // hex strings
-];
-
-// Check if text looks like metadata
-function isMetadata(text: string): boolean {
-  return METADATA_PATTERNS.some(pattern => pattern.test(text));
-}
-
-// Extract text using standard PDF parsing
-function extractTextFromPDF(pdfText: string): string {
-  const extractedTexts: string[] = [];
-  
-  // Method 1: Extract from Tj operator (single text string)
-  const tjPattern = /\(([^)]*(?:\\.[^)]*)*)\)\s*Tj/g;
-  for (const match of pdfText.matchAll(tjPattern)) {
-    const decoded = decodePDFText(match[1]);
-    if (isReadableText(decoded) && !isMetadata(decoded)) {
-      extractedTexts.push(decoded.trim());
-    }
-  }
-  
-  // Method 2: Extract from TJ operator (array of text strings)
-  const tjArrayPattern = /\[([^\]]*)\]\s*TJ/g;
-  for (const match of pdfText.matchAll(tjArrayPattern)) {
-    const arrayContent = match[1];
-    const stringPattern = /\(([^)]*(?:\\.[^)]*)*)\)/g;
-    
-    for (const strMatch of arrayContent.matchAll(stringPattern)) {
-      const decoded = decodePDFText(strMatch[1]);
-      if (isReadableText(decoded) && !isMetadata(decoded)) {
-        extractedTexts.push(decoded.trim());
-      }
-    }
-  }
-  
-  // Method 3: Extract from BT...ET blocks (text content blocks)
-  const btPattern = /BT\s+(.*?)\s+ET/gs;
-  for (const match of pdfText.matchAll(btPattern)) {
-    const block = match[1];
-    const textPattern = /\(([^)]*(?:\\.[^)]*)*)\)/g;
-    
-    for (const textMatch of block.matchAll(textPattern)) {
-      const decoded = decodePDFText(textMatch[1]);
-      if (isReadableText(decoded) && !isMetadata(decoded)) {
-        extractedTexts.push(decoded.trim());
-      }
-    }
-  }
-
-  // Filter out duplicates and metadata-looking strings
-  const uniqueTexts = [...new Set(extractedTexts)]
-    .filter(text => {
-      // Must be at least 5 characters
-      if (text.length < 5) return false;
-      
-      // Must have at least one space (actual sentences)
-      if (!text.includes(' ')) return false;
-      
-      // Must not be all uppercase (likely headers/metadata)
-      if (text === text.toUpperCase() && text.length < 30) return false;
-      
-      return true;
-    });
-
-  // Combine and clean text
-  let content = uniqueTexts.join(' ');
-  
-  // Clean up excessive whitespace while preserving structure
-  return content
-    .replace(/[ \t]+/g, ' ')
-    .replace(/\n\s*\n\s*\n/g, '\n\n')
-    .trim();
-}
-
-// Extract images from PDF for OCR processing
-function extractImagesFromPDF(pdfText: string): string[] {
-  const images: string[] = [];
-  
-  // Look for image objects in PDF (simplified extraction)
-  const imagePattern = /stream\s*(.*?)\s*endstream/gs;
-  let matchCount = 0;
-  
-  for (const match of pdfText.matchAll(imagePattern)) {
-    matchCount++;
-    // Limit to first 10 images to avoid overwhelming OCR
-    if (matchCount > 10) break;
-    
-    const streamData = match[1];
-    // Check if it looks like image data (contains binary markers)
-    if (streamData && streamData.length > 100) {
-      images.push(streamData);
-    }
-  }
-  
-  return images;
-}
-
-// Perform OCR using Lovable AI vision model
-async function performOCR(base64Data: string): Promise<string> {
+// Perform OCR on entire PDF using Lovable AI vision model
+async function performPDFOCR(base64Data: string, fileName: string): Promise<string> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) {
-    console.log("LOVABLE_API_KEY not configured, skipping OCR");
-    return "";
+    throw new Error("LOVABLE_API_KEY not configured - OCR unavailable");
   }
 
   try {
-    console.log("Attempting OCR with Lovable AI vision model...");
+    console.log(`[OCR] Processing PDF: ${fileName}`);
     
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -167,11 +25,29 @@ async function performOCR(base64Data: string): Promise<string> {
         model: "google/gemini-2.5-flash",
         messages: [
           {
+            role: "system",
+            content: `You are PDF-OCR-Extractor, a deterministic preprocessing agent. Extract ONLY human-visible textual content from this PDF.
+
+REQUIREMENTS:
+1. Extract only what is visually present (printed/scanned text, embedded fonts)
+2. IGNORE: metadata, bookmarks, tags, URLs, hidden layers, non-visible markup
+3. NO hallucinations - do not paraphrase, summarize, fix grammar, or infer missing words
+4. Preserve exact text: words, numbers, symbols, math, punctuation, case
+5. Preserve reading order: top-to-bottom, left-to-right, handle multi-column layouts
+6. Keep paragraphs and lines together
+7. Omit repetitive headers/footers (page numbers, running titles)
+8. Preserve lists, tables, code blocks, formulas with original structure
+9. For each page, start with: ----- PAGE [number] -----
+10. Output ONLY the extracted text - no explanations or commentary
+
+Your output will be ground-truth input for a downstream Reader agent.`
+          },
+          {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "Extract all text content from this PDF page image. Return only the extracted text without any additional commentary or formatting. If there is no readable text, return 'NO_TEXT_FOUND'."
+                text: "Extract all visible text from this PDF following the preprocessing requirements. Output structured plaintext with page markers."
               },
               {
                 type: "image_url",
@@ -182,29 +58,31 @@ async function performOCR(base64Data: string): Promise<string> {
             ]
           }
         ],
-        max_tokens: 4000,
+        max_tokens: 16000,
       }),
     });
 
     if (!response.ok) {
-      console.error("OCR API error:", response.status, await response.text());
-      return "";
+      const errorText = await response.text();
+      console.error(`[OCR] API error: ${response.status}`, errorText);
+      throw new Error(`OCR API failed: ${response.status}`);
     }
 
     const data = await response.json();
     const extractedText = data.choices?.[0]?.message?.content || "";
     
-    if (extractedText === "NO_TEXT_FOUND" || !extractedText.trim()) {
-      return "";
+    if (!extractedText.trim()) {
+      throw new Error("OCR returned empty result");
     }
     
-    console.log("OCR extracted text length:", extractedText.length);
+    console.log(`[OCR] Success - extracted ${extractedText.length} characters`);
     return extractedText.trim();
   } catch (error) {
-    console.error("OCR processing error:", error);
-    return "";
+    console.error("[OCR] Processing error:", error);
+    throw error;
   }
 }
+
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -221,86 +99,65 @@ serve(async (req) => {
       );
     }
 
-    console.log('Parsing PDF:', fileName);
-    console.log('PDF base64 length:', file.length);
-
-    // Decode base64 to binary
+    console.log(`[PARSER] Processing: ${fileName}`);
+    
+    // Decode base64 to get file size
     const binaryString = atob(file);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
     
-    console.log('PDF size:', bytes.length, 'bytes');
+    console.log(`[PARSER] File size: ${bytes.length} bytes`);
 
-    // Try UTF-8 first, fallback to latin1
-    let pdfText: string;
+    // Use OCR as primary extraction method for deterministic, accurate results
+    let extractedText: string;
+    let extractionMethod: string;
+    
     try {
-      pdfText = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-    } catch {
-      pdfText = new TextDecoder('latin1').decode(bytes);
-    }
-
-    // Attempt standard text extraction first
-    let actualContent = extractTextFromPDF(pdfText);
-
-    const metadata = {
-      fileName: fileName,
-      fileSize: bytes.length,
-      extractedTextLength: actualContent.length,
-      parsingDate: new Date().toISOString(),
-      extractionMethod: 'Enhanced multi-pattern PDF text extraction with metadata filtering',
-      ocrUsed: false,
-    };
-
-    console.log('Standard extraction - content length:', actualContent.length);
-    console.log('Standard extraction preview:', actualContent.substring(0, 200));
-
-    // If standard extraction fails or produces very little text, try OCR
-    if (!actualContent || actualContent.length < 200) {
-      console.log('Standard extraction insufficient, attempting OCR as primary method...');
-      
-      const ocrText = await performOCR(file);
-      
-      if (ocrText && ocrText.length > 0) {
-        actualContent = ocrText;
-        metadata.extractionMethod = 'OCR via Lovable AI vision model (google/gemini-2.5-flash)';
-        metadata.ocrUsed = true;
-        metadata.extractedTextLength = actualContent.length;
-        console.log('OCR successful - content length:', actualContent.length);
-        console.log('OCR extraction preview:', actualContent.substring(0, 200));
-      }
-    }
-
-    console.log('Final PDF Parser Output:');
-    console.log('Metadata:', metadata);
-    console.log('Content preview (first 500 chars):', actualContent.substring(0, 500));
-
-    if (!actualContent || actualContent.length < 50) {
-      console.log('WARNING: Insufficient text extracted from PDF');
+      extractedText = await performPDFOCR(file, fileName);
+      extractionMethod = 'OCR (Lovable AI - google/gemini-2.5-flash)';
+    } catch (ocrError) {
+      console.error('[PARSER] OCR failed:', ocrError);
       return new Response(
         JSON.stringify({ 
-          metadata,
-          rawText: 'Unable to extract readable text from PDF. The file may be:\n- Heavily encrypted or password-protected\n- Corrupted or malformed\n- Using unsupported fonts or encodings\n- An empty document\n\nBoth standard text extraction and OCR were attempted.',
-          error: 'Insufficient text extracted',
+          error: 'OCR extraction failed',
+          details: ocrError instanceof Error ? ocrError.message : 'Unable to extract text from PDF',
+          metadata: {
+            fileName,
+            fileSize: bytes.length,
+            parsingDate: new Date().toISOString(),
+          }
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const metadata = {
+      fileName,
+      fileSize: bytes.length,
+      extractedTextLength: extractedText.length,
+      parsingDate: new Date().toISOString(),
+      extractionMethod,
+      processingMode: 'deterministic-ocr',
+    };
+
+    console.log(`[PARSER] Success - ${extractedText.length} characters extracted`);
+    console.log(`[PARSER] Preview:\n${extractedText.substring(0, 300)}...`);
 
     return new Response(
       JSON.stringify({ 
         metadata,
-        rawText: actualContent,
+        rawText: extractedText,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('PDF parsing error:', error);
+    console.error('[PARSER] Error:', error);
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Failed to parse PDF',
-        details: 'PDF parsing failed. Please ensure the file is a valid, non-corrupted PDF.'
+        error: error instanceof Error ? error.message : 'PDF processing failed',
+        details: 'An unexpected error occurred during PDF processing.'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

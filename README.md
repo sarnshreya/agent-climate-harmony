@@ -4,17 +4,15 @@
 
 **URL**: https://lovable.dev/projects/2b60d2ba-43cf-43dd-a83a-6ad61ecbc719
 
-## How can I edit this code?
+## How to contribute to this code?
 
 There are several ways of editing your application.
 
-**Use Lovable**
+**Via Lovable**
 
 Simply visit the [Lovable Project](https://lovable.dev/projects/2b60d2ba-43cf-43dd-a83a-6ad61ecbc719) and start prompting.
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
+**Via IDE**
 
 If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
 
@@ -24,10 +22,10 @@ Follow these steps:
 
 ```sh
 # Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+git clone https://github.com/sarnshreya/agent-climate-harmony.git
 
 # Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+cd lovable-dev[bot]
 
 # Step 3: Install the necessary dependencies.
 npm i
@@ -36,7 +34,7 @@ npm i
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+**Directly in GitHub**
 
 - Navigate to the desired file(s).
 - Click the "Edit" button (pencil icon) at the top right of the file view.
@@ -62,7 +60,7 @@ This project is built with:
 
 ## How can I deploy this project?
 
-Simply open [Lovable](https://lovable.dev/projects/2b60d2ba-43cf-43dd-a83a-6ad61ecbc719) and click on Share -> Publish.
+Deployed at [Lovable](https://lovable.dev/projects/2b60d2ba-43cf-43dd-a83a-6ad61ecbc719) and click on Share -> Publish.
 
 ## Can I connect a custom domain to my Lovable project?
 

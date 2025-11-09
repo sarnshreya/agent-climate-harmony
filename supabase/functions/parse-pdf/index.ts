@@ -57,13 +57,23 @@ serve(async (req) => {
       .replace(/\s+/g, ' ')                       // Normalize whitespace
       .trim();
 
-    console.log('Extracted text length:', extractedText.length);
+    // Extract basic metadata
+    const metadata = {
+      fileName: fileName,
+      fileSize: bytes.length,
+      extractedTextLength: extractedText.length,
+      estimatedPages: Math.ceil(extractedText.length / 2000), // Rough estimate
+      parsingDate: new Date().toISOString(),
+    };
+
+    console.log('Extracted metadata:', metadata);
 
     if (!extractedText || extractedText.length < 50) {
       return new Response(
         JSON.stringify({ 
-          content: 'Unable to extract sufficient text from PDF. The file may be image-based, encrypted, or use complex formatting.',
-          fileName 
+          metadata,
+          rawText: 'Unable to extract sufficient text from PDF. The file may be image-based, encrypted, or use complex formatting.',
+          error: 'Insufficient text extracted',
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -71,8 +81,8 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ 
-        content: extractedText,
-        fileName 
+        metadata,
+        rawText: extractedText,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

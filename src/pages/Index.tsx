@@ -60,16 +60,25 @@ const Index = () => {
       }
 
       const parseData = await parseResponse.json();
-      const extractedText = parseData.content;
       
-      console.log('Extracted text length:', extractedText.length);
+      // Parser node outputs: metadata and rawText
+      const metadata = parseData.metadata;
+      const rawText = parseData.rawText;
+      
+      console.log('PDF Parser Output:');
+      console.log('Metadata:', metadata);
+      console.log('Raw text length:', rawText.length);
+      
+      if (parseData.error) {
+        throw new Error(parseData.error);
+      }
       
       toast({
         title: "PDF parsed successfully",
-        description: "Now analyzing with AI agents...",
+        description: `Extracted ${metadata.extractedTextLength} characters from ${metadata.estimatedPages} estimated pages`,
       });
 
-      // Now send the extracted text to process-document
+      // Now send ONLY the raw text to process-document (Reader Agent input)
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-document`,
         {
@@ -78,8 +87,9 @@ const Index = () => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            fileName: selectedFile.name,
-            fileContent: extractedText,
+            fileName: metadata.fileName,
+            fileContent: rawText,  // Raw text fed to Reader Agent
+            metadata: metadata,     // Pass metadata for context
           }),
         }
       );

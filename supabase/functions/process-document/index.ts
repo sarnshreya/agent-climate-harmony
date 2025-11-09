@@ -20,7 +20,7 @@ serve(async (req) => {
   }
 
   try {
-    const { fileName, fileContent } = await req.json();
+    const { fileName, fileContent, metadata } = await req.json();
     
     if (!fileName || !fileContent) {
       throw new Error("fileName and fileContent are required");
@@ -34,11 +34,17 @@ serve(async (req) => {
     console.log(`===== Multi-Agent Processing System =====`);
     console.log(`Processing document: ${fileName}`);
     console.log(`File content length: ${fileContent.length} characters`);
+    
+    if (metadata) {
+      console.log(`PDF Metadata:`, JSON.stringify(metadata));
+    }
 
     const outputs: AgentOutput[] = [];
 
-    // Reader Agent
+    // Reader Agent - Receives raw text from PDF Parser node
     console.log("\n===== Running Reader Agent =====");
+    console.log("Input: Raw text from PDF Parser node");
+    
     const readerResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -50,11 +56,11 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are a Reader Agent. Analyze the document and extract key findings and methodology. Format your response with clear sections using **bold** for headings."
+            content: "You are a Reader Agent. You receive raw text extracted from a PDF document. Analyze the content and extract key findings, methodology, and important information. Format your response with clear sections using **bold** for headings."
           },
           {
             role: "user",
-            content: `Analyze this document:\n\nFilename: ${fileName}\n\nContent:\n${fileContent}`
+            content: `Analyze this document text:\n\nFilename: ${fileName}\n\nRaw Text:\n${fileContent}`
           }
         ],
       }),

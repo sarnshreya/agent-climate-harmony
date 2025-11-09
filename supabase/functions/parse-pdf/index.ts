@@ -6,6 +6,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Constants
+const MAX_FILE_SIZE_MB = 20;
+const MIN_TEXT_LENGTH = 500; // Minimum characters for valid text extraction
+
 // Extract text from PDF using PDF.js
 async function extractTextFromPDF(base64Data: string): Promise<string> {
   try {
@@ -67,7 +71,11 @@ serve(async (req) => {
 
     if (!file) {
       return new Response(
-        JSON.stringify({ error: 'No file provided' }),
+        JSON.stringify({ 
+          status: 'error',
+          message: 'No file provided',
+          paper_text: ''
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -81,7 +89,21 @@ serve(async (req) => {
       bytes[i] = binaryString.charCodeAt(i);
     }
     
-    console.log(`[PARSER] File size: ${bytes.length} bytes`);
+    const fileSizeMB = bytes.length / (1024 * 1024);
+    console.log(`[PARSER] File size: ${bytes.length} bytes (${fileSizeMB.toFixed(2)} MB)`);
+    
+    // Check file size limit
+    if (fileSizeMB > MAX_FILE_SIZE_MB) {
+      console.log(`[PARSER] ❌ File too large: ${fileSizeMB.toFixed(2)} MB (max: ${MAX_FILE_SIZE_MB} MB)`);
+      return new Response(
+        JSON.stringify({ 
+          status: 'error',
+          message: `PDF too large (${fileSizeMB.toFixed(2)} MB). Please upload a file under ${MAX_FILE_SIZE_MB} MB.`,
+          paper_text: ''
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Extract text using PDF.js
     let extractedText: string;
@@ -89,7 +111,29 @@ serve(async (req) => {
     
     try {
       extractedText = await extractTextFromPDF(file);
-      extractionMethod = 'PDF.js text extraction';
+      extractionMethod = 'pdfjs';
+      
+      // Check text quality - similar to Python's threshold check
+      if (!extractedText || extractedText.trim().length < MIN_TEXT_LENGTH) {
+        console.log(`[PARSER] ⚠️  Low-quality extraction: ${extractedText.trim().length} chars (min: ${MIN_TEXT_LENGTH})`);
+        return new Response(
+          JSON.stringify({ 
+            status: 'error',
+            message: 'Empty or low-confidence text extracted. PDF may be image-based or malformed.',
+            paper_text: extractedText || '',
+            metadata: {
+              fileName,
+              fileSize: bytes.length,
+              extractedLength: extractedText?.length || 0,
+              parsingDate: new Date().toISOString(),
+            }
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      console.log(`[PARSER] ✅ High-quality extraction: ${extractedText.length} chars`);
+      
     } catch (extractionError) {
       console.error('\n========== PDF PARSER ERROR ==========');
       console.error('[PARSER] TEXT EXTRACTION FAILED');
@@ -101,7 +145,9 @@ serve(async (req) => {
       
       return new Response(
         JSON.stringify({ 
-          error: 'Text extraction failed',
+          status: 'error',
+          message: 'Parsing failed. PDF may be malformed or image-based.',
+          paper_text: '',
           details: extractionError instanceof Error ? extractionError.message : 'Unable to extract text from PDF',
           metadata: {
             fileName,
@@ -116,6 +162,7 @@ serve(async (req) => {
     const metadata = {
       fileName,
       fileSize: bytes.length,
+      fileSizeMB: fileSizeMB.toFixed(2),
       extractedTextLength: extractedText.length,
       parsingDate: new Date().toISOString(),
       extractionMethod,
@@ -132,17 +179,21 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ 
+        status: 'success',
+        method: extractionMethod,
+        paper_text: extractedText,
         metadata,
-        rawText: extractedText,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('[PARSER] Error:', error);
+    console.error('[PARSER] Unexpected Error:', error);
     return new Response(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'PDF processing failed',
-        details: 'An unexpected error occurred during PDF processing.'
+        status: 'error',
+        message: 'PDF processing failed',
+        paper_text: '',
+        details: error instanceof Error ? error.message : 'An unexpected error occurred during PDF processing.'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

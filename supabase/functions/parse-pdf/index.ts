@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import * as pdfjs from "https://esm.sh/pdfjs-dist@4.0.379/legacy/build/pdf.mjs";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,14 +9,16 @@ const corsHeaders = {
 const MAX_FILE_SIZE_MB = 20;
 const MIN_TEXT_LENGTH = 500; // Minimum characters for valid text extraction
 
-// Extract text from PDF using PDF.js
-async function extractTextFromPDF(base64Data: string): Promise<string> {
+// Extract text from PDF using Unstructured API
+async function extractTextFromPDF(base64Data: string, fileName: string): Promise<string> {
   try {
-    console.log(`[PDF.js] Starting text extraction...`);
+    console.log(`[Unstructured API] Starting text extraction...`);
     
-    // Disable worker for Deno environment
-    pdfjs.GlobalWorkerOptions.workerSrc = '';
-    
+    const UNSTRUCTURED_API_KEY = Deno.env.get('UNSTRUCTURED_API_KEY');
+    if (!UNSTRUCTURED_API_KEY) {
+      throw new Error('UNSTRUCTURED_API_KEY is not configured');
+    }
+
     // Decode base64 to binary
     const binaryString = atob(base64Data);
     const bytes = new Uint8Array(binaryString.length);
@@ -25,37 +26,54 @@ async function extractTextFromPDF(base64Data: string): Promise<string> {
       bytes[i] = binaryString.charCodeAt(i);
     }
     
-    // Load PDF document
-    const loadingTask = pdfjs.getDocument({ data: bytes });
-    const pdf = await loadingTask.promise;
+    // Create FormData for the API request
+    const formData = new FormData();
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    formData.append('files', blob, fileName);
+    formData.append('strategy', 'hi_res'); // Use high-resolution strategy for better OCR
     
-    console.log(`[PDF.js] PDF loaded - ${pdf.numPages} pages`);
+    console.log(`[Unstructured API] Sending request to API...`);
     
+    // Call Unstructured API
+    const response = await fetch('https://api.unstructured.io/general/v0/general', {
+      method: 'POST',
+      headers: {
+        'unstructured-api-key': UNSTRUCTURED_API_KEY,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[Unstructured API] API error: ${response.status} - ${errorText}`);
+      throw new Error(`Unstructured API error: ${response.status} - ${errorText}`);
+    }
+
+    const elements = await response.json();
+    console.log(`[Unstructured API] Received ${elements.length} elements`);
+    
+    // Extract text from all elements
     let fullText = '';
+    let currentPage = 1;
     
-    // Extract text from each page
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum);
-      const textContent = await page.getTextContent();
+    for (const element of elements) {
+      // Add page markers when page changes
+      if (element.metadata?.page_number && element.metadata.page_number !== currentPage) {
+        currentPage = element.metadata.page_number;
+        fullText += `\n----- PAGE ${currentPage} -----\n`;
+      }
       
-      // Add page marker
-      fullText += `----- PAGE ${pageNum} -----\n`;
-      
-      // Extract text items
-      const pageText = textContent.items
-        .map((item: any) => item.str)
-        .join(' ');
-      
-      fullText += pageText + '\n\n';
-      
-      console.log(`[PDF.js] Page ${pageNum}/${pdf.numPages} - ${pageText.length} chars`);
+      // Add element text
+      if (element.text) {
+        fullText += element.text + '\n';
+      }
     }
     
-    console.log(`[PDF.js] ✅ Extraction complete - ${fullText.length} total characters`);
+    console.log(`[Unstructured API] ✅ Extraction complete - ${fullText.length} total characters`);
     return fullText.trim();
     
   } catch (error) {
-    console.error('[PDF.js] Extraction failed:', error);
+    console.error('[Unstructured API] Extraction failed:', error);
     throw new Error(`PDF text extraction failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -105,13 +123,13 @@ serve(async (req) => {
       );
     }
 
-    // Extract text using PDF.js
+    // Extract text using Unstructured API
     let extractedText: string;
     let extractionMethod: string;
     
     try {
-      extractedText = await extractTextFromPDF(file);
-      extractionMethod = 'pdfjs';
+      extractedText = await extractTextFromPDF(file, fileName);
+      extractionMethod = 'unstructured-api';
       
       // Check text quality - similar to Python's threshold check
       if (!extractedText || extractedText.trim().length < MIN_TEXT_LENGTH) {

@@ -52,22 +52,24 @@ const Index = () => {
         throw new Error(parseError.message || "Failed to parse PDF");
       }
 
-      // Parser node outputs: metadata and rawText (actual PDF content)
+      // Check for parsing errors in response
+      if (parseData.status === 'error') {
+        throw new Error(parseData.message || parseData.details || "Failed to parse PDF");
+      }
+
+      // Parser node outputs: metadata and paper_text (actual PDF content)
       const metadata = parseData.metadata;
-      const actualContent = parseData.rawText;
+      const actualContent = parseData.paper_text;
       
       console.log('PDF Parser Node Output:');
+      console.log('- Extraction Method:', parseData.method);
       console.log('- Metadata:', metadata);
       console.log('- Actual Content Length:', actualContent.length);
       console.log('- Content Preview:', actualContent.substring(0, 200));
       
-      if (parseData.error) {
-        throw new Error(parseData.error);
-      }
-      
       toast({
         title: "PDF parsed successfully",
-        description: `Extracted ${metadata.extractedTextLength} characters. Sending to Reader Agent...`,
+        description: `Extracted ${metadata.extractedTextLength} characters using ${parseData.method}. Sending to Reader Agent...`,
       });
 
       // Send actual PDF content to Reader Agent
